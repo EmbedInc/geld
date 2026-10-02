@@ -11,6 +11,7 @@ call src_insall %srcdir% %libname%
 
 call src_pas %srcdir% %libname%_id
 call src_pas %srcdir% %libname%_lib
+call src_pas %srcdir% %libname%_meter
 
 call src_lib %srcdir% %libname%
 call src_msg %srcdir% %libname%

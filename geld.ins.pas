@@ -15,9 +15,11 @@ const
   geld_idlev_last = geld_idlevels - 1; {maximum 0-N meter IDs tree level number}
   geld_nbranch = lshft(1, geld_idlev_bits); {number of branches per IDs tree level}
   geld_maxbranch = geld_nbranch - 1;   {max 0-N branch index per IDs tree level}
+  geld_idlev_mask = geld_maxbranch;    {mask for ID bits per level}
 
 type
   geld_rateclass_k_t = (               {IDs for each rate class}
+    geld_rateclass_none_k,             {class not set or unknown}
     geld_rateclass_c1_k,               {commercial}
     geld_rateclass_c2_k,               {commerical solar}
     geld_rateclass_f1_k,               {farm}
@@ -33,10 +35,12 @@ type
     geld_rateclass_ts_k,               {time of use solar}
     geld_rateclass_tu_k);              {time of use}
 
+  geld_meterid_t = sys_int_conv32_t;   {ID of one meter}
+
   geld_intv_p_t = ^geld_intv_t;
   geld_intv_t = record                 {one measured electricity use interval}
-    prev: geld_intv_p_t;               {to previous record this meter}
-    next: geld_intv_p_t;               {to next record this meter}
+    prev_p: geld_intv_p_t;             {to previous record this meter}
+    next_p: geld_intv_p_t;             {to next record this meter}
     tst, ten: sys_clock_t;             {start/end time of this interval}
     len: real;                         {interval time length, seconds}
     kwh: real;                         {total kWh use during interval}
@@ -45,7 +49,7 @@ type
 
   geld_meter_p_t = ^geld_meter_t;
   geld_meter_t = record                {data about one electric meter}
-    id: sys_int_conv32_t;              {meter ID}
+    id: geld_meterid_t;                {meter ID}
     class: geld_rateclass_k_t;         {rate class ID}
     mult: real;                        {meter reading multiplier to make kWh}
     intv_first_p: geld_intv_p_t;       {to first measured interval in list}
@@ -73,10 +77,17 @@ geld_idnode_last_k: (                  {lowest tree node, points to leaves}
   geld_t = record                      {state for this use of the GELD library}
     mem_p: util_mem_context_p_t;       {to mem context for this lib use}
     idtree: geld_idnode_t;             {root node of meter IDs tree}
+    nmeters: sys_int_machine_t;        {number of meters defined}
     end;
 {
 *   Subroutines and functions.
 }
+procedure geld_id_find (               {find specific meter, create if not exist}
+  in out  geld: geld_t;                {library use state}
+  in      id: geld_meterid_t;          {ID of meter to find}
+  out     meter_p: geld_meter_p_t);    {returned pointer to data about the meter}
+  val_param; extern;
+
 procedure geld_lib_end (               {end a use of the GELD library, dealloc resources}
   in out  geld_p: geld_p_t);           {to library use state, will be returned NIL}
   val_param; extern;
@@ -84,4 +95,23 @@ procedure geld_lib_end (               {end a use of the GELD library, dealloc r
 procedure geld_lib_new (               {create new use of the GELD library}
   in out  mem: util_mem_context_t;     {parent mem context, will create subordinate}
   out     geld_p: geld_p_t);           {returned new library use state}
+  val_param; extern;
+
+procedure geld_meter_intv_add (        {add measured interval to data for a meter}
+  in out  geld: geld_t;                {library use state}
+  in out  meter: geld_meter_t;         {meter to add measured interval to}
+  in      st, en: sys_clock_t;         {interval start/end times}
+  in      reading: real);              {energy reading, will be multiplied by meter factor}
+  val_param; extern;
+
+procedure geld_meter_class_set (       {set rate class for a meter}
+  in out  geld: geld_t;                {library use state}
+  in out  meter: geld_meter_t;         {meter to set rateclass of}
+  in      class: geld_rateclass_k_t);  {rate class of this meter}
+  val_param; extern;
+
+procedure geld_meter_mult_set (        {set meter mult factor to make kWh}
+  in out  geld: geld_t;                {library use state}
+  in out  meter: geld_meter_t;         {meter to set multiplier of}
+  in      mult: real);                 {mult factor (x reading = kWh)}
   val_param; extern;

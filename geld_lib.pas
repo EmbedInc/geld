@@ -33,6 +33,7 @@ begin
 
   geld_p^.mem_p := mem_p;              {save pointer context for new dyn memory}
   geld_id_node_init (nil, geld_p^.idtree); {initialize root meter IDs tree node}
+  geld_p^.nmeters := 0;                {init to no meters defined}
   end;
 {
 ********************************************************************************
