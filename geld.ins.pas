@@ -41,10 +41,8 @@ type
   geld_intv_t = record                 {one measured electricity use interval}
     prev_p: geld_intv_p_t;             {to previous record this meter}
     next_p: geld_intv_p_t;             {to next record this meter}
-    tst, ten: sys_clock_t;             {start/end time of this interval}
-    len: real;                         {interval time length, seconds}
+    tst, ten: sys_clkmin32_t;          {start/end time of this interval}
     kwh: real;                         {total kWh use during interval}
-    watts: real;                       {average use during interval}
     end;
 
   geld_meter_p_t = ^geld_meter_t;
@@ -86,6 +84,20 @@ procedure geld_id_find (               {find specific meter, create if not exist
   in out  geld: geld_t;                {library use state}
   in      id: geld_meterid_t;          {ID of meter to find}
   out     meter_p: geld_meter_p_t);    {returned pointer to data about the meter}
+  val_param; extern;
+
+procedure geld_intv_get (              {get data of a measured interval}
+  in      intv: geld_intv_t;           {the interval to get data about}
+  out     st, en: sys_clock_t;         {absolute start and end times}
+  out     kwh: real;                   {energy consumed during interval, kWh}
+  out     sec: real;                   {interval length, seconds}
+  out     watts: real);                {average power consumption, Watts}
+  val_param; extern;
+
+procedure geld_intv_set (              {set the data of a measured interval}
+  in out  intv: geld_intv_t;           {measured interval to set values of}
+  in      st, en: sys_clock_t;         {interval start and end time}
+  in      kwh: real);                  {kWh energy measured during the interval}
   val_param; extern;
 
 procedure geld_lib_end (               {end a use of the GELD library, dealloc resources}

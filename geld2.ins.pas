@@ -14,6 +14,10 @@ procedure geld_id_node_init (          {initialize IDs tree node}
   out     idnode: geld_idnode_t);      {the tree node to initialize}
   val_param; extern;
 
+procedure geld_intv_init (             {initialize a measured interval descriptor}
+  out     intv: geld_intv_t);          {interval to initialize}
+  val_param; extern;
+
 procedure geld_meter_init (            {initialize meter data descriptor}
   in      id: geld_meterid_t;          {ID of meter initializing state of}
   out     meter: geld_meter_t);        {meter data to initialize}

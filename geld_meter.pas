@@ -78,13 +78,9 @@ procedure geld_meter_intv_add (        {add measured interval to data for a mete
   in      reading: real);              {energy reading, will be multiplied by meter factor}
   val_param;
 
-const
-  kwh_j = 3600000.0;                   {constant to convert kWh to Joules}
-
 var
   intv_p: geld_intv_p_t;               {to saved description of measured interval}
   ent_p: geld_intv_p_t;                {to existing measured intervals list entry}
-  tcomp: sys_compare_k_t;              {result of comparing two time values}
 
 begin
 {
@@ -93,20 +89,15 @@ begin
   util_mem_grab (sizeof(intv_p^), geld.mem_p^, false, intv_p); {alloc mem for new measurement}
   util_mem_grab_err_bomb (intv_p, sizeof(intv_p^));
 
-  intv_p^.tst := st;                   {save interval start time}
-  intv_p^.ten := en;                   {save interval end time}
-  intv_p^.len := sys_clock_to_fp2 (    {make and save interval length in seconds}
-    sys_clock_sub (en, st)             {compute time interval length}
-    );
-  intv_p^.kwh := reading * meter.mult; {save reading converted to kWh}
-  intv_p^.watts :=                     {make equivalent average Watts}
-    intv_p^.kwh * kwh_j / intv_p^.len;
+  geld_intv_init (intv_p^);            {initialize the interval descriptor}
+  geld_intv_set (                      {set the interval data}
+    intv_p^,                           {interval to set data of}
+    st, en,                            {interval start and end times}
+    reading * meter.mult);             {consumed energy in kWh}
 {
 *   Handle special case of this is first measured intervals list entry.
 }
-  if meter.intv_last_p = nil then begin {there is no existing intervals list to add to ?}
-    intv_p^.prev_p := nil;             {there is no previous list entry}
-    intv_p^.next_p := nil;             {there is no next list entry}
+  if meter.intv_first_p = nil then begin {there is no existing intervals list to add to ?}
     meter.intv_first_p := intv_p;      {this interval is now first and last list entry}
     meter.intv_last_p := intv_p;
     return;
@@ -119,11 +110,7 @@ begin
 }
   ent_p := meter.intv_last_p;          {init to last list entry}
   while ent_p <> nil do begin          {loop over the existing list of intervals}
-    tcomp := sys_clock_compare (ent_p^.tst, st); {compare this entry to new intv start}
-    if                                 {this list entry is before or at new interval ?}
-        (tcomp = sys_compare_lt_k) or
-        (tcomp = sys_compare_eq_k)
-        then begin
+    if ent_p^.tst <= intv_p^.tst then begin {add new interval after this list entry ?}
       intv_p^.prev_p := ent_p;         {link new entry back to previous}
       intv_p^.next_p := ent_p^.next_p; {link new entry forwards to next}
       if ent_p^.next_p = nil
@@ -135,7 +122,7 @@ begin
           end
         ;
       ent_p^.next_p := intv_p;         {link previous entry forward to new}
-      return;
+      return;                          {done adding new interval to list}
       end;
     ent_p := ent_p^.prev_p;            {to previous list entry}
     end;                               {back to check this new list entry}
@@ -144,7 +131,6 @@ begin
 *   than the new interval.  Add the new interval to the start of the list.
 }
   meter.intv_first_p^.prev_p := intv_p; {link existing first entry back to new}
-  intv_p^.prev_p := nil;               {indicate at start of list}
   intv_p^.next_p := meter.intv_first_p; {link forward to first existing list entry}
   meter.intv_first_p := intv_p;        {new entry is now first in list}
   end;
