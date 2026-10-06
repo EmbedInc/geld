@@ -29,18 +29,31 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine GELD_METER_CLASS_SET (GELD, METER, CLASS)
+*   Function GELD_METER_CLASS_SET (GELD, METER, CLASS)
 *
-*   Set the rate class for the meter.
+*   Set the rate class for the meter.  The function returns TRUE on success.
+*   That means the meter is now set to the specified rate class, and that it was
+*   previously either set to that class or no class was set.  The function
+*   returns FALSE and does not change the rate class if it was previously set
+*   to a different value.
 }
-procedure geld_meter_class_set (       {set rate class for a meter}
+function geld_meter_class_set (        {set rate class for a meter}
   in out  geld: geld_t;                {library use state}
   in out  meter: geld_meter_t;         {meter to set rateclass of}
-  in      class: geld_rateclass_k_t);  {rate class of this meter}
+  in      class: geld_rateclass_k_t)   {rate class of this meter}
+  :boolean;                            {success, class was previously same or not set}
   val_param;
 
 begin
+  geld_meter_class_set := false;       {init to error}
+
+  if                                   {trying to change class ?}
+      (meter.class <> geld_rateclass_none_k) and {specific class previously set ?}
+      (class <> meter.class)           {different from the new class ?}
+    then return;
+
   meter.class := class;                {set the rate class for this meter}
+  geld_meter_class_set := true;        {indicate success}
   end;
 {
 ********************************************************************************

@@ -3,6 +3,12 @@
 }
 const
   geld_subsys_k = -90;                 {Embed subsystem ID for the GELD library}
+  geld_stat_multhead_k = 1;            {invalid multipliers file header line}
+  geld_stat_bmet_k = 2;                {bad meter ID in CSV file}
+  geld_stat_nrdclass_k = 3;            {error reading rate class code in CSV file}
+  geld_stat_bclass_k = 4;              {bad rate class code in CSV file}
+  geld_stat_bmult_k = 5;               {bad meter multiplier in CSV file}
+  geld_stat_flineclass_k = 6;          {attempt to change rate class, in file/line}
 
   geld_idlev_bits = 4;                 {meter ID bits per level of IDs tree}
   geld_idbits = 32;                    {max bits per meter ID}
@@ -116,14 +122,31 @@ procedure geld_meter_intv_add (        {add measured interval to data for a mete
   in      reading: real);              {energy reading, will be multiplied by meter factor}
   val_param; extern;
 
-procedure geld_meter_class_set (       {set rate class for a meter}
+function geld_meter_class_set (        {set rate class for a meter}
   in out  geld: geld_t;                {library use state}
   in out  meter: geld_meter_t;         {meter to set rateclass of}
-  in      class: geld_rateclass_k_t);  {rate class of this meter}
+  in      class: geld_rateclass_k_t)   {rate class of this meter}
+  :boolean;                            {success, class was previously same or not set}
   val_param; extern;
 
 procedure geld_meter_mult_set (        {set meter mult factor to make kWh}
   in out  geld: geld_t;                {library use state}
   in out  meter: geld_meter_t;         {meter to set multiplier of}
   in      mult: real);                 {mult factor (x reading = kWh)}
+  val_param; extern;
+
+function geld_rateclass_f_code (       {get rate class ID from 2-lett code}
+  in      code: univ string_var_arg_t) {string, starts with rate class 2-lett code}
+  :geld_rateclass_k_t;                 {rate class ID indicated by the string}
+  val_param; extern;
+
+procedure geld_rateclass_t_code (      {make 2-letter rate class code from ID}
+  in      class: geld_rateclass_k_t;   {rate class ID}
+  in out  code: univ string_var_arg_t); {returned 2 letter code, empty for invalid}
+  val_param; extern;
+
+procedure geld_read_mult (             {read meter multipliers file}
+  in out  geld: geld_t;                {library use state}
+  in      fnam: univ string_var_arg_t; {name of file to read, ".csv" suffix assumed}
+  out     stat: sys_err_t);            {completion status}
   val_param; extern;
