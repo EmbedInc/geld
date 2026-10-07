@@ -7,4 +7,4 @@ rem
 setlocal
 call build_pasinit
 
-rem src_progl test_geld
+src_progl test_geld

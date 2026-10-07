@@ -67,6 +67,7 @@ type
   geld_idnode_p_t = ^geld_idnode_t;
   geld_idnode_t = record               {one node in meter IDs tree}
     up_p: geld_idnode_p_t;             {to parent node, NIL at top}
+    pbr: sys_int_machine_t;            {0-N branch in parent node}
     level: sys_int_machine_t;          {levels down from top, 0 at top}
     case geld_idnode_k_t of
 geld_idnode_tree_k: (                  {tree node, not a leaf node}
@@ -75,6 +76,11 @@ geld_idnode_tree_k: (                  {tree node, not a leaf node}
 geld_idnode_last_k: (                  {lowest tree node, points to leaves}
       meterp: array[0..geld_maxbranch] of geld_meter_p_t; {to meter descriptors}
       );
+    end;
+
+  geld_idpos_t = record                {saved position within IDs tree}
+    node_p: geld_idnode_p_t;           {to current node, NIL after end}
+    br: sys_int_machine_t;             {0-N branch within node}
     end;
 
   geld_p_t = ^geld_t;
@@ -86,10 +92,34 @@ geld_idnode_last_k: (                  {lowest tree node, points to leaves}
 {
 *   Subroutines and functions.
 }
-procedure geld_id_find (               {find specific meter, create if not exist}
+procedure geld_id_find (               {find specific meter}
+  in out  geld: geld_t;                {library use state}
+  in      id: geld_meterid_t;          {ID of meter to find}
+  out     meter_p: geld_meter_p_t);    {to meter data, NIL if no such meter}
+  val_param; extern;
+
+procedure geld_id_get (                {find specific meter, create if not exist}
   in out  geld: geld_t;                {library use state}
   in      id: geld_meterid_t;          {ID of meter to find}
   out     meter_p: geld_meter_p_t);    {returned pointer to data about the meter}
+  val_param; extern;
+
+procedure geld_id_next (               {to next ID in list}
+  in out  geld: geld_t;                {library use state}
+  in out  pos: geld_idpos_t;           {position with IDs list, will be updated}
+  out     meter_p: geld_meter_p_t);    {to meter with next higher ID, NIL at list end}
+  val_param; extern;
+
+procedure geld_id_pos_id (             {init IDs position to specific ID}
+  in out  geld: geld_t;                {library use state}
+  in      id: geld_meterid_t;          {pos will be first meter at or after this ID}
+  out     meter_p: geld_meter_p_t;     {meter at the new position, NIL at end of list}
+  out     pos: geld_idpos_t);          {returned initialized position in IDs list}
+  val_param; extern;
+
+procedure geld_id_pos_start (          {init IDs position to start of list}
+  in out  geld: geld_t;                {library use state}
+  out     pos: geld_idpos_t);          {returned initialized position in IDs list}
   val_param; extern;
 
 procedure geld_intv_get (              {get data of a measured interval}
@@ -149,4 +179,14 @@ procedure geld_read_mult (             {read meter multipliers file}
   in out  geld: geld_t;                {library use state}
   in      fnam: univ string_var_arg_t; {name of file to read, ".csv" suffix assumed}
   out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure geld_read_tree (             {read tree of GELD data files}
+  in out  geld: geld_t;                {library use state}
+  in      dir: univ string_var_arg_t;  {name of directory containing data tree}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure geld_show_meter (            {show basic info about a meter}
+  in      meter: geld_meter_t);        {meter to show info about}
   val_param; extern;

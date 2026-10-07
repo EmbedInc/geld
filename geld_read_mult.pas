@@ -119,7 +119,7 @@ err_header:
       goto err_atline;
       end;
 
-    geld_id_find (geld, metid, meter_p); {find or create descriptor for this meter}
+    geld_id_get (geld, metid, meter_p); {find or create descriptor for this meter}
 
     if not geld_meter_class_set (geld, meter_p^, class) then begin {set rate class}
       sys_stat_set (geld_subsys_k, geld_stat_flineclass_k, stat);

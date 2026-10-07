@@ -15,6 +15,8 @@ call src_pas %srcdir% %libname%_lib
 call src_pas %srcdir% %libname%_meter
 call src_pas %srcdir% %libname%_rateclass
 call src_pas %srcdir% %libname%_read_mult
+call src_pas %srcdir% %libname%_read_tree
+call src_pas %srcdir% %libname%_show
 
 call src_lib %srcdir% %libname%
 call src_msg %srcdir% %libname%
