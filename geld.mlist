@@ -3,6 +3,8 @@ geld_intv.obj
 geld_lib.obj
 geld_meter.obj
 geld_rateclass.obj
+geld_read_intv_class.obj
 geld_read_mult.obj
 geld_read_tree.obj
 geld_show.obj
+geld_str.obj

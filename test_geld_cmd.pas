@@ -22,9 +22,14 @@ procedure test_geld_cmd;               {interactive command processor}
 var
   meterid: geld_meterid_t;             {meter ID number}
   meter_p: geld_meter_p_t;             {to current meter, if any}
+  met_p: geld_meter_p_t;               {scratch meter pointer}
   i1: sys_int_machine_t;               {scratch command parameter}
   ii: sys_int_machine_t;               {scratch integer}
   pos: geld_idpos_t;                   {position within meter IDs list}
+  posr: geld_intvpos_t;                {position within readings list of a meter}
+  date: sys_date_t;                    {expanded date/time}
+  time: sys_clock_t;                   {scratch time}
+  intv_p: geld_intv_p_t;               {to meter reading of time interval}
 
   cmds: string_var1024_t;              {command names, blank-separated, upper case}
   desc: string_list_t;                 {list of descriptions for each command}
@@ -158,14 +163,17 @@ begin
     'Quit the program');
   add_command ('STAT',                 {3}
     'Show statistics');
-  add_command ('MET meter',            {4}
+  add_command ('MET [meter]',          {4}
     'Set curr meter, show basics');
   add_command ('LM start [n]',         {5}
     'List meters');
+  add_command ('LR [Y/M/D.h:m]',       {6}
+    'List readings of current meter');
 {
 *   Initialize local state before command processing.
 }
   string_vstring (prompt, prompt_text, -1); {set PROMPT to the prompt string}
+  meter_p := nil;                      {init to no current meter}
 {
 *   Get the next command from the user.
 }
@@ -223,20 +231,30 @@ loop_command:
 {
 ********************
 *
-*   MET meter
+*   MET [meter]
 *
 *   Make the meter with ID METER current and show basic info about the meter.
 }
 4: begin
   string_token_int (cmline, p, meterid, stat); {get meter ID number}
-  if sys_error(stat) then goto error;
-  if not_eol then goto parm_extra;
-
-  geld_id_find (geld_p^, meterid, meter_p); {try to find meter descriptor}
-  if meter_p = nil then begin
-    writeln ('No such meter');
-    goto done_command;
-    end;
+  if string_eos(stat)
+    then begin
+      if meter_p = nil then begin
+        writeln ('No current meter');
+        goto done_command;
+        end;
+      end
+    else begin
+      if sys_error(stat) then goto error;
+      if not_eol then goto parm_extra;
+      geld_id_find (geld_p^, meterid, meter_p); {try to find meter descriptor}
+      if meter_p = nil then begin
+        writeln ('No such meter');
+        goto done_command;
+        end;
+      geld_intv_pos_start (meter_p^, posr); {start start of readings list}
+      end
+    ;
 
   geld_show_meter (meter_p^);          {show basic info about this meter}
   end;
@@ -265,17 +283,55 @@ loop_command:
   if i1 <= 0 then goto done_command;
 
   ii := 0;                             {init number of meters shown}
-  geld_id_pos_id (geld_p^, meterid, meter_p, pos); {start at or after indicated meter}
-  while meter_p <> nil do begin        {back here each new meter}
-    geld_show_meter (meter_p^);        {show basic info about this meter}
+  geld_id_pos_id (geld_p^, meterid, met_p, pos); {start at or after indicated meter}
+  while met_p <> nil do begin          {back here each new meter}
+    geld_show_meter (met_p^);          {show basic info about this meter}
     ii := ii + 1;                      {count one more meter shown}
     i1 := i1 - 1;                      {one less list entry allowed to show}
     if i1 <= 0 then exit;              {already showed max allowed meters ?}
-    geld_id_next (geld_p^, pos, meter_p); {to next with next higher ID}
+    geld_id_next (geld_p^, pos, met_p); {to next with next higher ID}
     end;
   write (ii, ' meter');
   if ii <> 1 then write ('s');
   writeln (' shown.');
+  end;
+{
+********************
+*
+*   LR [date/time]
+*
+*   List readings for the current meter starting at or after the indicated
+*   date/time.  When no date/time is given, the list will continue where it last
+*   left off.  Up to NLIST readings are shown.  The position is initialized to
+*   before the start of the list when a meter is selected.
+}
+6: begin
+  if meter_p = nil then begin          {no current meter ?}
+    writeln ('No current meter.');
+    goto done_command;
+    end;
+
+  string_token (cmline, p, parm, stat); {try to get date/time string}
+  if not string_eos(stat) then begin
+    if sys_error(stat) then goto error;
+    if not_eol then goto parm_extra;
+    string_t_date1 (parm, true, date, stat); {interpret date/time string}
+    if sys_error(stat) then goto parm_bad;
+    time := sys_clock_from_date (date); {convert to clock value}
+    geld_intv_pos_time (               {to before first reading after date/time}
+      meter_p^, time, posr);
+    end;
+
+  ii := 0;                             {init number of readings shown}
+  while true do begin                  {back here each new reading to show}
+    geld_intv_next (posr, intv_p);     {get pointer to next interval}
+    if intv_p = nil then exit;         {hit end of list ?}
+    geld_show_intv (intv_p^, meter_p^); {show data for this reading}
+    ii := ii + 1;                      {count one more reading shown}
+    if ii >= nlist then exit;          {hit max readings to show ?}
+    end;                               {back for next reading}
+
+  writeln (ii, ' readings shown.');
   end;
 {
 ********************

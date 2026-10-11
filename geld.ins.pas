@@ -9,6 +9,12 @@ const
   geld_stat_bclass_k = 4;              {bad rate class code in CSV file}
   geld_stat_bmult_k = 5;               {bad meter multiplier in CSV file}
   geld_stat_flineclass_k = 6;          {attempt to change rate class, in file/line}
+  geld_stat_errdate_k = 7;             {error reading MM/DD/YEAR date from file}
+  geld_stat_errtime_k = 8;             {error reading HH:MM time from file}
+  geld_stat_breading_k = 9;            {bad meter reading in file}
+  geld_stat_baddate_k = 10;            {bad MM/DD/YEAR date string in file}
+  geld_stat_badhhmm_k = 11;            {bad HH:MM time string in file}
+  geld_stat_bmetper_k = 12;            {attempt to change meter period in file}
 
   geld_idlev_bits = 4;                 {meter ID bits per level of IDs tree}
   geld_idbits = 32;                    {max bits per meter ID}
@@ -47,7 +53,7 @@ type
   geld_intv_t = record                 {one measured electricity use interval}
     prev_p: geld_intv_p_t;             {to previous record this meter}
     next_p: geld_intv_p_t;             {to next record this meter}
-    tst, ten: sys_clkmin32_t;          {start/end time of this interval}
+    tend: sys_clkmin32_t;              {end time of this interval}
     kwh: real;                         {total kWh use during interval}
     end;
 
@@ -56,8 +62,15 @@ type
     id: geld_meterid_t;                {meter ID}
     class: geld_rateclass_k_t;         {rate class ID}
     mult: real;                        {meter reading multiplier to make kWh}
+    period: sys_int_conv32_t;          {seconds reading period, 0 = unknown}
+    nintv: sys_int_machine_t;          {number of measured intervals in list}
     intv_first_p: geld_intv_p_t;       {to first measured interval in list}
     intv_last_p: geld_intv_p_t;        {to last measured interval in list}
+    end;
+
+  geld_intvpos_t = record              {saved position within list of intervals}
+    meter_p: geld_meter_p_t;           {to meter that made the readings}
+    intv_p: geld_intv_p_t;             {to curr reading, NIL before first}
     end;
 
   geld_idnode_k_t = (                  {type of ID tree nodes}
@@ -124,15 +137,32 @@ procedure geld_id_pos_start (          {init IDs position to start of list}
 
 procedure geld_intv_get (              {get data of a measured interval}
   in      intv: geld_intv_t;           {the interval to get data about}
+  in      meter: geld_meter_t;         {meter that made the measurement}
   out     st, en: sys_clock_t;         {absolute start and end times}
   out     kwh: real;                   {energy consumed during interval, kWh}
   out     sec: real;                   {interval length, seconds}
   out     watts: real);                {average power consumption, Watts}
   val_param; extern;
 
+procedure geld_intv_next (             {get next interval reading in list}
+  in out  pos: geld_intvpos_t;         {position within readings list, updated}
+  out     intv_p: geld_intv_p_t);      {to next interval, NIL at end of list}
+  val_param; extern;
+
+procedure geld_intv_pos_time (         {to before first reading at or after TIME}
+  in var  meter: geld_meter_t;         {meter that created the readings}
+  in      time: sys_clock_t;           {find first reading at or after this time}
+  out     pos: geld_intvpos_t);        {returned position in readings list}
+  val_param; extern;
+
+procedure geld_intv_pos_start (        {init position to start of intervals list}
+  in var  meter: geld_meter_t;         {meter that created the readings}
+  out     pos: geld_intvpos_t);        {returned position, at first reading}
+  val_param; extern;
+
 procedure geld_intv_set (              {set the data of a measured interval}
   in out  intv: geld_intv_t;           {measured interval to set values of}
-  in      st, en: sys_clock_t;         {interval start and end time}
+  in      tend: sys_clock_t;           {interval end time}
   in      kwh: real);                  {kWh energy measured during the interval}
   val_param; extern;
 
@@ -148,7 +178,7 @@ procedure geld_lib_new (               {create new use of the GELD library}
 procedure geld_meter_intv_add (        {add measured interval to data for a meter}
   in out  geld: geld_t;                {library use state}
   in out  meter: geld_meter_t;         {meter to add measured interval to}
-  in      st, en: sys_clock_t;         {interval start/end times}
+  in      tend: sys_clock_t;           {interval end time}
   in      reading: real);              {energy reading, will be multiplied by meter factor}
   val_param; extern;
 
@@ -165,6 +195,18 @@ procedure geld_meter_mult_set (        {set meter mult factor to make kWh}
   in      mult: real);                 {mult factor (x reading = kWh)}
   val_param; extern;
 
+function geld_meter_period (           {meter measuring period}
+  in      meter: geld_meter_t)         {meter inquiring measuring period of}
+  :real;                               {period in seconds, 0 = unknown}
+  val_param; extern;
+
+function geld_meter_period_set (       {set reading period for a meter}
+  in out  geld: geld_t;                {library use state}
+  in out  meter: geld_meter_t;         {meter to update}
+  in      sec: real)                   {reading period, seconds}
+  :boolean;                            {success, not previously set to different period}
+  val_param; extern;
+
 function geld_rateclass_f_code (       {get rate class ID from 2-lett code}
   in      code: univ string_var_arg_t) {string, starts with rate class 2-lett code}
   :geld_rateclass_k_t;                 {rate class ID indicated by the string}
@@ -173,6 +215,13 @@ function geld_rateclass_f_code (       {get rate class ID from 2-lett code}
 procedure geld_rateclass_t_code (      {make 2-letter rate class code from ID}
   in      class: geld_rateclass_k_t;   {rate class ID}
   in out  code: univ string_var_arg_t); {returned 2 letter code, empty for invalid}
+  val_param; extern;
+
+procedure geld_read_intv_class (       {read interval data file for specific rate class}
+  in out  geld: geld_t;                {library use state}
+  in      fnam: univ string_var_arg_t; {name of file to read, ".csv" suffix assumed}
+  in      class: geld_rateclass_k_t;   {rate class for all data in the file}
+  out     stat: sys_err_t);            {completion status}
   val_param; extern;
 
 procedure geld_read_mult (             {read meter multipliers file}
@@ -189,4 +238,9 @@ procedure geld_read_tree (             {read tree of GELD data files}
 
 procedure geld_show_meter (            {show basic info about a meter}
   in      meter: geld_meter_t);        {meter to show info about}
+  val_param; extern;
+
+procedure geld_show_intv (             {show measured interval}
+  in      intv: geld_intv_t;           {the interval to show}
+  in      meter: geld_meter_t);        {meter that measured the interval}
   val_param; extern;

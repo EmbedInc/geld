@@ -5,6 +5,8 @@ define geld_meter_init;
 define geld_meter_class_set;
 define geld_meter_mult_set;
 define geld_meter_intv_add;
+define geld_meter_period_set;
+define geld_meter_period;
 %include 'geld2.ins.pas';
 {
 ********************************************************************************
@@ -23,6 +25,8 @@ begin
   meter.id := id;                      {save meter ID}
   meter.class := geld_rateclass_none_k; {init to rate class not set}
   meter.mult := 1.0;                   {init meter multiplier to make kWh}
+  meter.period := 0;                   {init reading period to unknown}
+  meter.nintv := 0;                    {init to no measured intervals}
   meter.intv_first_p := nil;           {init to no measured intervals}
   meter.intv_last_p := nil;
   end;
@@ -75,11 +79,11 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine GELD_METER_INTV_ADD (GELD, METER, ST, EN, READING)
+*   Subroutine GELD_METER_INTV_ADD (GELD, METER, TEND, READING)
 *
-*   Add an interval measured by the indicated meter.  ST and EN are the start
-*   and end times of the interval.  READING is the raw meter reading.  READING
-*   will be multiplied by the mult factor for the specific meter to make kWh.
+*   Add an interval measured by the indicated meter.  TEND is the ending time of
+*   the interval.  READING is the raw meter reading.  READING will be multiplied
+*   by the mult factor for the specific meter to make kWh.
 *
 *   The new measured interval will be inserted into the list of measured
 *   intervals for this meter in chronological order.
@@ -87,7 +91,7 @@ begin
 procedure geld_meter_intv_add (        {add measured interval to data for a meter}
   in out  geld: geld_t;                {library use state}
   in out  meter: geld_meter_t;         {meter to add measured interval to}
-  in      st, en: sys_clock_t;         {interval start/end times}
+  in      tend: sys_clock_t;           {interval end time}
   in      reading: real);              {energy reading, will be multiplied by meter factor}
   val_param;
 
@@ -105,8 +109,10 @@ begin
   geld_intv_init (intv_p^);            {initialize the interval descriptor}
   geld_intv_set (                      {set the interval data}
     intv_p^,                           {interval to set data of}
-    st, en,                            {interval start and end times}
+    tend,                              {interval ending time}
     reading * meter.mult);             {consumed energy in kWh}
+
+  meter.nintv := meter.nintv + 1;      {will be one more measured interval this meter}
 {
 *   Handle special case of this is first measured intervals list entry.
 }
@@ -123,7 +129,7 @@ begin
 }
   ent_p := meter.intv_last_p;          {init to last list entry}
   while ent_p <> nil do begin          {loop over the existing list of intervals}
-    if ent_p^.tst <= intv_p^.tst then begin {add new interval after this list entry ?}
+    if ent_p^.tend <= intv_p^.tend then begin {add new interval after this list entry ?}
       intv_p^.prev_p := ent_p;         {link new entry back to previous}
       intv_p^.next_p := ent_p^.next_p; {link new entry forwards to next}
       if ent_p^.next_p = nil
@@ -146,4 +152,52 @@ begin
   meter.intv_first_p^.prev_p := intv_p; {link existing first entry back to new}
   intv_p^.next_p := meter.intv_first_p; {link forward to first existing list entry}
   meter.intv_first_p := intv_p;        {new entry is now first in list}
+  end;
+{
+********************************************************************************
+*
+*   Function GELD_METER_PERIOD_SET (GELD, METER, SEC)
+*
+*   Set the reading period of a meter.  SEC is the period in seconds.
+*
+*   The function returns TRUE on success and FALSE on error.  It is an error if
+*   the period was previously set to a different value than SEC.
+}
+function geld_meter_period_set (       {set reading period for a meter}
+  in out  geld: geld_t;                {library use state}
+  in out  meter: geld_meter_t;         {meter to update}
+  in      sec: real)                   {reading period, seconds}
+  :boolean;                            {success, not previously set to different period}
+  val_param;
+
+var
+  isec: sys_int_conv32_t;              {period as integer seconds}
+
+begin
+  geld_meter_period_set := true;       {init to indicate success}
+  isec := round(sec);                  {make period rounded to nearest second}
+
+  if isec = meter.period then return;  {no change being made ?}
+  if meter.period = 0 then begin       {first time setting period ?}
+    meter.period := isec;              {set the period}
+    return;
+    end;
+
+  geld_meter_period_set := false;      {indicate error, period not changed}
+  end;
+{
+********************************************************************************
+*
+*   Function GELD_METER_PERIOD (METER)
+*
+*   Return the meter reading period in seconds.  0.0 is returned when the period
+*   is unknown.
+}
+function geld_meter_period (           {meter measuring period}
+  in      meter: geld_meter_t)         {meter inquiring measuring period of}
+  :real;                               {period in seconds, 0 = unknown}
+  val_param;
+
+begin
+  geld_meter_period := meter.period;
   end;

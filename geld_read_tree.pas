@@ -21,13 +21,32 @@ var
 begin
   fnam.max := size_char(fnam.str);     {init local var strings}
   tnam.max := size_char(tnam.str);
-
+{
+*   Read the meter multipliers file.  All meters not listed in this file will be
+*   assumed to have a multiplier of 1.
+}
   string_pathname_join (dir, string_v('multiplier.csv'), fnam);
   string_treename (fnam, tnam);        {make full absolute pathname}
   writeln ('Reading "', tnam.str:tnam.len, '".');
   geld_read_mult (geld, tnam, stat);
+  if sys_error(stat) then return;
+
+
 
 
 {*** Work in progress.  More files need to be read. ***}
+
+
+{*** Temp read a single fixed rate class file, for testing. ***}
+
+  string_pathname_join (dir, string_v('SB-Solar Battery.csv'), fnam);
+  string_treename (fnam, tnam);        {make full absolute pathname}
+  writeln ('Reading "', tnam.str:tnam.len, '".');
+  geld_read_intv_class (               {read interval data, all for one rate class}
+    geld,                              {library use state}
+    tnam,                              {name of file to read}
+    geld_rateclass_sb_k,               {rate class for all data in this file}
+    stat);
+
 
   end;

@@ -22,3 +22,15 @@ procedure geld_meter_init (            {initialize meter data descriptor}
   in      id: geld_meterid_t;          {ID of meter initializing state of}
   out     meter: geld_meter_t);        {meter data to initialize}
   val_param; extern;
+
+function geld_str_mmddyear (           {set date/time from MM/DD/YEAR string}
+  in      str: univ string_var_arg_t;  {string to interpret}
+  out     date: sys_date_t)            {date/time descriptor to set}
+  :boolean;                            {success, not invalid input string}
+  val_param; extern;
+
+function geld_str_hhmm (               {update date/time from HH:MM string}
+  in      str: univ string_var_arg_t;  {string to interpret}
+  in out  date: sys_date_t)            {date/time to set time within day of}
+  :boolean;                            {success, not invalid input string}
+  val_param; extern;
