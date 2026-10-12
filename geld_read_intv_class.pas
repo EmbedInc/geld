@@ -137,14 +137,11 @@ begin
     {
     *   Add this new reading to the list for the current meter.
     }
-    tend := sys_clock_from_date (date); {make reading end time}
-
     geld_meter_intv_add (              {add this measured interval to meter}
       geld,                            {library use state}
       meter_p^,                        {meter to add reading to}
       tend,                            {ending time of the reading}
       reading);                        {raw meter reading}
-
     tprev := tend;                     {end time of this interval become previous}
     end;                               {back for next CSV input file line}
 
