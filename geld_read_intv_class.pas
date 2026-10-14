@@ -97,8 +97,11 @@ begin
       end;
 
     reading := csv_in_field_fp (cin, stat);
+    if csvfield_null(stat) then begin
+      reading := 0.0;
+      end;
     if sys_error(stat) then begin
-      sys_stat_set (geld_subsys_k, geld_stat_errtime_k, stat);
+      sys_stat_set (geld_subsys_k, geld_stat_breading_k, stat);
       goto err_atline;
       end;
     {
