@@ -132,11 +132,13 @@ procedure geld_read_tree (             {read tree of GELD data files}
   val_param;
 
 var
+  tstart: sys_clock_t;                 {starting time}
   fnam, tnam: string_treename_t;       {scratch file names}
   dent: string_leafname_t;             {directory entry}
   conn: file_conn_t;                   {connection to top level directory}
   finfo: file_info_t;                  {info about directory entry}
   class: geld_rateclass_k_t;           {rate class ID}
+  dt: double;                          {elapsed seconds}
 
 label
   leave;
@@ -145,6 +147,8 @@ begin
   fnam.max := size_char(fnam.str);     {init local var strings}
   tnam.max := size_char(tnam.str);
   dent.max := size_char(dent.str);
+
+  tstart := sys_clock;                 {save starting time}
 {
 *   Read the meter multipliers file.  All meters not listed in this file will be
 *   assumed to have a multiplier of 1.
@@ -200,4 +204,9 @@ file_type_dir_k: begin                 {subdirectory}
 
 leave:                                 {common exit point with top directory open}
   file_close (conn);                   {close connection to top directory}
+
+  dt := sys_clock_to_fp2 (             {make seconds spent reading all the files}
+    sys_clock_sub (sys_clock, tstart)
+    );
+  geld.tread := geld.tread + dt;       {log time spent reading data files}
   end;

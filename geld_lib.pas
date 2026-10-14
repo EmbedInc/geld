@@ -30,10 +30,15 @@ begin
   util_mem_grab (                      {alloc mem for new library use state}
     sizeof(geld_p^), mem_p^, false, geld_p);
   util_mem_grab_err_bomb (geld_p, sizeof(geld_p^)); {bomb if didn't get the memory}
-
+{
+*   Initialize the new library use state.
+}
   geld_p^.mem_p := mem_p;              {save pointer context for new dyn memory}
   geld_id_node_init (nil, geld_p^.idtree); {initialize root meter IDs tree node}
+  geld_p^.nfiles := 0;                 {init to no data files read}
   geld_p^.nmeters := 0;                {init to no meters defined}
+  geld_p^.nintv := 0;                  {init to no meter reading intervals}
+  geld_p^.tread := 0.0;                {init time spent reading tree of files}
   end;
 {
 ********************************************************************************

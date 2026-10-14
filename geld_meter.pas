@@ -112,7 +112,8 @@ begin
     tend,                              {interval ending time}
     reading * meter.mult);             {consumed energy in kWh}
 
-  meter.nintv := meter.nintv + 1;      {will be one more measured interval this meter}
+  meter.nintv := meter.nintv + 1;      {count one more measured interval this meter}
+  geld.nintv := geld.nintv + 1;        {count one more measured interval overall}
 {
 *   Handle special case of this is first measured intervals list entry.
 }

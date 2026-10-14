@@ -3,6 +3,7 @@
 module geld_show;
 define geld_show_meter;
 define geld_show_intv;
+define geld_show_read_stats;
 %include 'geld2.ins.pas';
 {
 ********************************************************************************
@@ -101,5 +102,43 @@ begin
   string_f_fp_eng (tk, watts, 3, un);
   write ('  ', tk.str:tk.len, ' ', un.str:un.len, 'W');
 
+  writeln;
+  end;
+{
+********************************************************************************
+*
+*   Subroutine GELD_SHOW_READ_STATS (GELD)
+*
+*   Show statistics related to all the data files that were read.
+}
+procedure geld_show_read_stats (       {show stats from reading data files}
+  in      geld: geld_t);               {library use state}
+  val_param;
+
+var
+  tk: string_var32_t;                  {scratch token}
+  d: double;                           {scratch double precision floating point}
+  stat: sys_err_t;                     {completion status}
+
+begin
+  tk.max := size_char(tk.str);         {init local var string}
+
+  d := geld.nintv;                     {get total number of reading intervals}
+  string_f_fp (                        {convert to string}
+    tk,                                {output string}
+    d,                                 {input number}
+    0, 0,                              {free format, no fixed field width}
+    1,                                 {min required significant digits}
+    12,                                {max digits allowed left of point}
+    0, 0,                              {min/max digits allowed right of point}
+    [string_ffp_group_k],              {show digits in groups}
+    stat);
+  sys_error_abort (stat, '', '', nil, 0);
+  write (geld.nfiles, ' files containing ',
+    geld.nmeters, ' meters and ',
+    tk.str:tk.len, ' readings read in ');
+
+  string_f_fp_fixed (tk, geld.tread, 1); {make seconds spent reading string}
+  write (tk.str:tk.len, ' seconds.');
   writeln;
   end;

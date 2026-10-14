@@ -226,7 +226,7 @@ loop_command:
 3: begin
   if not_eol then goto parm_extra;
 
-  writeln (geld_p^.nmeters, ' meters defined.');
+  geld_show_read_stats (geld_p^);
   end;
 {
 ********************

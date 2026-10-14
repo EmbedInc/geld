@@ -100,7 +100,10 @@ geld_idnode_last_k: (                  {lowest tree node, points to leaves}
   geld_t = record                      {state for this use of the GELD library}
     mem_p: util_mem_context_p_t;       {to mem context for this lib use}
     idtree: geld_idnode_t;             {root node of meter IDs tree}
-    nmeters: sys_int_machine_t;        {number of meters defined}
+    nfiles: sys_int_machine_t;         {number of data files read}
+    nmeters: sys_int_machine_t;        {number of meters}
+    nintv: sys_int_machine_t;          {number of meter reading intervals}
+    tread: real;                       {time reading data files tree, seconds}
     end;
 {
 *   Subroutines and functions.
@@ -243,4 +246,8 @@ procedure geld_show_meter (            {show basic info about a meter}
 procedure geld_show_intv (             {show measured interval}
   in      intv: geld_intv_t;           {the interval to show}
   in      meter: geld_meter_t);        {meter that measured the interval}
+  val_param; extern;
+
+procedure geld_show_read_stats (       {show stats from reading data files}
+  in      geld: geld_t);               {library use state}
   val_param; extern;

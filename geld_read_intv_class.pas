@@ -58,6 +58,7 @@ begin
 
   csv_in_open (fnam, geld.mem_p^, cin, stat); {open file for reading in CSV format}
   if sys_error(stat) then return;
+  geld.nfiles := geld.nfiles + 1;      {count one more data file read}
   meter_p := nil;                      {init to no current meter}
 
   while true do begin                  {back here each new CSV input file line}
