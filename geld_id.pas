@@ -130,7 +130,8 @@ begin
   geld_meter_init (id, meter_p^);      {initialize the new meter descriptor}
 
   node_p^.meterp[br] := meter_p;       {save pointer to data for this meter}
-  geld.nmeters := geld.nmeters + 1;    {count one more meter defined}
+  geld.stat_class[geld_rateclass_none_k].nmeters := {count one more meter total}
+    geld.stat_class[geld_rateclass_none_k].nmeters + 1;
   end;
 {
 ********************************************************************************

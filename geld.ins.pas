@@ -46,7 +46,11 @@ type
     geld_rateclass_sb_k,               {solar battery}
     geld_rateclass_ts_k,               {time of use solar}
     geld_rateclass_tu_k);              {time of use}
+const
+  geld_rateclass_first = succ(firstof(geld_rateclass_k_t)); {first real rate class}
+  geld_rateclass_last = lastof(geld_rateclass_k_t); {last real rate class}
 
+type
   geld_meterid_t = sys_int_conv32_t;   {ID of one meter}
 
   geld_intv_p_t = ^geld_intv_t;
@@ -64,6 +68,7 @@ type
     mult: real;                        {meter reading multiplier to make kWh}
     period: sys_int_conv32_t;          {seconds reading period, 0 = unknown}
     nintv: sys_int_machine_t;          {number of measured intervals in list}
+    kwh: double;                       {total kWh measured by this meter}
     intv_first_p: geld_intv_p_t;       {to first measured interval in list}
     intv_last_p: geld_intv_p_t;        {to last measured interval in list}
     end;
@@ -96,14 +101,24 @@ geld_idnode_last_k: (                  {lowest tree node, points to leaves}
     br: sys_int_machine_t;             {0-N branch within node}
     end;
 
+  geld_stat_class_t = record           {statistics about one rate class}
+    nmeters: sys_int_machine_t;        {number of meters}
+    nintv: sys_int_machine_t;          {number of meter reading intervals}
+    kwh: double;                       {total kWh consumed}
+    end;
+
+  geld_stat_classes_t = array          {stats for each rate class}
+    [firstof(geld_rateclass_k_t)       {class NONE is totals for all}
+      .. lastof(geld_rateclass_k_t)]
+    of geld_stat_class_t;
+
   geld_p_t = ^geld_t;
   geld_t = record                      {state for this use of the GELD library}
     mem_p: util_mem_context_p_t;       {to mem context for this lib use}
     idtree: geld_idnode_t;             {root node of meter IDs tree}
     nfiles: sys_int_machine_t;         {number of data files read}
-    nmeters: sys_int_machine_t;        {number of meters}
-    nintv: sys_int_machine_t;          {number of meter reading intervals}
     tread: real;                       {time reading data files tree, seconds}
+    stat_class: geld_stat_classes_t;   {stats separate rate classes and total}
     end;
 {
 *   Subroutines and functions.

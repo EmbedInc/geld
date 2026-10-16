@@ -27,6 +27,7 @@ begin
   meter.mult := 1.0;                   {init meter multiplier to make kWh}
   meter.period := 0;                   {init reading period to unknown}
   meter.nintv := 0;                    {init to no measured intervals}
+  meter.kwh := 0.0;                    {init kWh measured this meter}
   meter.intv_first_p := nil;           {init to no measured intervals}
   meter.intv_last_p := nil;
   end;
@@ -49,15 +50,18 @@ function geld_meter_class_set (        {set rate class for a meter}
   val_param;
 
 begin
-  geld_meter_class_set := false;       {init to error}
+  geld_meter_class_set := true;        {init to indicate success}
 
-  if                                   {trying to change class ?}
-      (meter.class <> geld_rateclass_none_k) and {specific class previously set ?}
-      (class <> meter.class)           {different from the new class ?}
-    then return;
+  if meter.class = class then return;  {already set to the selected class ?}
 
-  meter.class := class;                {set the rate class for this meter}
-  geld_meter_class_set := true;        {indicate success}
+  if meter.class = geld_rateclass_none_k then begin {not yet set to a specific class ?}
+    meter.class := class;              {set the meter to CLASS}
+    geld.stat_class[class].nmeters :=  {count one more meter of this class}
+      geld.stat_class[class].nmeters + 1;
+    return;
+    end;
+
+  geld_meter_class_set := false;       {attempt to re-define meter rate class}
   end;
 {
 ********************************************************************************
@@ -98,6 +102,7 @@ procedure geld_meter_intv_add (        {add measured interval to data for a mete
 var
   intv_p: geld_intv_p_t;               {to saved description of measured interval}
   ent_p: geld_intv_p_t;                {to existing measured intervals list entry}
+  kwh: real;                           {kWh consumed this reading interval}
 
 begin
 {
@@ -105,15 +110,25 @@ begin
 }
   util_mem_grab (sizeof(intv_p^), geld.mem_p^, false, intv_p); {alloc mem for new measurement}
   util_mem_grab_err_bomb (intv_p, sizeof(intv_p^));
-
   geld_intv_init (intv_p^);            {initialize the interval descriptor}
+
+  kwh := reading * meter.mult;         {make reading converted to kWh}
   geld_intv_set (                      {set the interval data}
     intv_p^,                           {interval to set data of}
     tend,                              {interval ending time}
-    reading * meter.mult);             {consumed energy in kWh}
+    kwh);                              {consumed energy in kWh}
 
   meter.nintv := meter.nintv + 1;      {count one more measured interval this meter}
-  geld.nintv := geld.nintv + 1;        {count one more measured interval overall}
+  geld.stat_class[meter.class].nintv := {count one more interval this rate class}
+    geld.stat_class[meter.class].nintv + 1;
+  geld.stat_class[geld_rateclass_none_k].nintv := {count one more interval globally}
+    geld.stat_class[geld_rateclass_none_k].nintv + 1;
+
+  meter.kwh := meter.kwh + kwh;        {update total kWh for this meter}
+  geld.stat_class[meter.class].kwh :=  {update total kWh for this rate class}
+    geld.stat_class[meter.class].kwh + kwh;
+  geld.stat_class[geld_rateclass_none_k].kwh := {update total kWh globally}
+    geld.stat_class[geld_rateclass_none_k].kwh + kwh;
 {
 *   Handle special case of this is first measured intervals list entry.
 }
