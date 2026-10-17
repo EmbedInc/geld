@@ -22,3 +22,4 @@ call src_pas %srcdir% %libname%_str
 
 call src_lib %srcdir% %libname%
 call src_msg %srcdir% %libname%
+call src_doc geld_files.txt

@@ -1,0 +1,24 @@
+                            Program TEST_GELD
+                             17 October 2026
+
+test_geld [options]
+
+Test program for the GELD library.  The program is for testing features of
+the GELD library, and is not intended to be useful to end users.  The GELD
+library provides a procedural interface for reading and manipulating data
+related to operations of the Groton Electric Light Department.
+
+The program reads a tree of data files.  See the GELD_FILES documentation
+file for details of these data files.
+
+After reading all the qualifying files in the tree, the program shows
+statistics about the data.  It then allows the user to interactively enter
+commands.  The "?" command shows a list of commands with brief
+explanations.
+
+The command line options are:
+
+  -TREE pathname
+
+    Explicitly sets the tree of files to read.  The default is
+    "~/geld/data/2025".

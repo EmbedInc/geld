@@ -1,0 +1,62 @@
+                      Files used by the GELD library
+                             17 October 2026
+
+This file describes the files and their format that are read or written by
+the Embed GELD library.  The GELD library provides a procedural interface
+for reading and manipulating data related to operations of the Groton
+Electric Light Department in Groton Massachusetts.
+
+The input data files are organized in a file system tree with the
+following objects:
+
+  File MULTIPLIER.CSV
+
+    CSV (comma-separated value) file that provides multiplier values for
+    electric meters.  The multiplier for each meter is the value to scale
+    raw readings with to result in units of kWh.  Meters that are not
+    listed in this file are assumed to have a multiplier of 1.
+
+    This file must exist and must contain a header line of column names.
+    The first three fields in the header line must be "METER ID", "RATE",
+    and "MULTIPLIER".  These column names are case-insensitive.
+    Additional column names may exist but are ignored.
+
+    No further lines are required, but if they exist the first three
+    fields contain the meter ID number, the rate code, and the meter
+    multiplier.  Meter IDs are integer values unique to each meter.  Rate
+    codes are 2-letter upper case sequences identifying the rate class.
+    The meter muliplier will be interpreted as a floating point string.
+
+  Meter reading files RRxx.CSV
+
+    These are CSV files that contain individual meter readings.  Each file
+    name starts with two upper case letters indicating a rate class.  The
+    rate code may be followed by additional characters as long as the
+    first extra character is not a letter (either upper or lower case).
+    The ".csv" file name suffix is mandatory.
+
+    These files contain no header line.  Each data line contains the
+    fields:
+
+      <meter ID>, MM/DD/YYYY, HH:MM, <meter reading>
+
+    The meter ID is an integer and uniquely identifies the meter.
+    MM/DD/YYYY together with HH:MM specify the date/time of the end of the
+    reading interval.  The meter reading is a value that will be
+    interpreted as a floating point string.  The meter reading will be
+    scaled by the multiplier for that meter to determine the total energy
+    consumed during the reading interval in kWh.  Additional fields may be
+    present but are ignored.
+
+    The time difference between the first two readings from a particular
+    meter are assumed to indicate the length of all readings for that
+    meter.
+
+  Directory RRxx
+
+    Subdirectory containing meter reading files for the rate class RR.
+    RRxx is the same format as for the meter reading file names in the top
+    level directory (see above).
+
+    All files with names ending in ".csv" in this subdirectory tree will
+    be read as meter reading files.  Any other files will be ignored.
