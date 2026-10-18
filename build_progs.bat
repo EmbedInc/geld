@@ -7,4 +7,5 @@ rem
 setlocal
 call build_pasinit
 
+src_progl geldplot
 src_progl test_geld

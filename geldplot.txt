@@ -1,0 +1,22 @@
+                            Program GELDPLOT
+                             18 October 2026
+
+geldplot [options]
+
+Program to generate plots and statistics about a data collection related
+to the Groton Electric Light Department in Groton Massachusetts.
+
+The program reads a tree of data files.  See the GELD_FILES documentation
+file for details of these data files.
+
+After reading all the qualifying files in the tree, the program shows
+statistics about the data.  It then allows the user to interactively enter
+commands.  The "?" command shows a list of commands with brief
+explanations.
+
+The command line options are:
+
+  -TREE pathname
+
+    Explicitly sets the tree of files to read.  The default is
+    "~/geld/data/2025".
