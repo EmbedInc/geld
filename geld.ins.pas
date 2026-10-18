@@ -46,6 +46,8 @@ type
     geld_rateclass_sb_k,               {solar battery}
     geld_rateclass_ts_k,               {time of use solar}
     geld_rateclass_tu_k);              {time of use}
+  geld_rateclass_t = set of geld_rateclass_k_t;
+
 const
   geld_rateclass_first = succ(firstof(geld_rateclass_k_t)); {first real rate class}
   geld_rateclass_last = lastof(geld_rateclass_k_t); {last real rate class}
