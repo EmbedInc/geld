@@ -114,6 +114,10 @@ geld_idnode_last_k: (                  {lowest tree node, points to leaves}
       .. lastof(geld_rateclass_k_t)]
     of geld_stat_class_t;
 
+  geld_power_p_t = ^geld_power_t;
+  geld_power_t =                       {average power per slice, size variable}
+    array[0..128] of double;
+
   geld_p_t = ^geld_t;
   geld_t = record                      {state for this use of the GELD library}
     mem_p: util_mem_context_p_t;       {to mem context for this lib use}
@@ -125,6 +129,15 @@ geld_idnode_last_k: (                  {lowest tree node, points to leaves}
 {
 *   Subroutines and functions.
 }
+procedure geld_avepower (              {compute average power over interval}
+  in      geld: geld_t;                {library use state}
+  out     power: univ geld_power_t;    {average power per time slice, Watts}
+  in      npower: sys_int_machine_t;   {number of POWER entries, wrapped as needed}
+  in      slsec: sys_int_machine_t;    {size of each slice, seconds}
+  in      st, en: sys_clock_t;         {start and end time to average over}
+  in      classes: geld_rateclass_t);  {set of rate classes to include}
+  val_param; extern;
+
 procedure geld_id_find (               {find specific meter}
   in out  geld: geld_t;                {library use state}
   in      id: geld_meterid_t;          {ID of meter to find}
@@ -138,7 +151,7 @@ procedure geld_id_get (                {find specific meter, create if not exist
   val_param; extern;
 
 procedure geld_id_next (               {to next ID in list}
-  in out  geld: geld_t;                {library use state}
+  in      geld: geld_t;                {library use state}
   in out  pos: geld_idpos_t;           {position with IDs list, will be updated}
   out     meter_p: geld_meter_p_t);    {to meter with next higher ID, NIL at list end}
   val_param; extern;
@@ -151,7 +164,7 @@ procedure geld_id_pos_id (             {init IDs position to specific ID}
   val_param; extern;
 
 procedure geld_id_pos_start (          {init IDs position to start of list}
-  in out  geld: geld_t;                {library use state}
+  in      geld: geld_t;                {library use state}
   out     pos: geld_idpos_t);          {returned initialized position in IDs list}
   val_param; extern;
 

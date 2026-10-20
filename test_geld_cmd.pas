@@ -23,13 +23,18 @@ var
   meterid: geld_meterid_t;             {meter ID number}
   meter_p: geld_meter_p_t;             {to current meter, if any}
   met_p: geld_meter_p_t;               {scratch meter pointer}
-  i1: sys_int_machine_t;               {scratch command parameter}
+  i1: sys_int_machine_t;               {scratch integer command parameter}
+  b1: boolean;                         {scratch boolean command parameter}
   ii: sys_int_machine_t;               {scratch integer}
   pos: geld_idpos_t;                   {position within meter IDs list}
   posr: geld_intvpos_t;                {position within readings list of a meter}
   date: sys_date_t;                    {expanded date/time}
   time: sys_clock_t;                   {scratch time}
   intv_p: geld_intv_p_t;               {to meter reading of time interval}
+  hour: array[0..23] of double;        {average Watts in each hour}
+  class: geld_rateclass_k_t;           {scratch rate class ID}
+  classes: geld_rateclass_t;           {rate classes to include in operations}
+  tstart, tend: sys_clock_t;           {start and end of time interval}
 
   cmds: string_var1024_t;              {command names, blank-separated, upper case}
   desc: string_list_t;                 {list of descriptions for each command}
@@ -48,14 +53,15 @@ label
 {
 ****************************************
 *
-*   Subroutine ADD_COMMAND (NAME, DSC)
+*   Subroutine ADD_COMMAND (CMDSTR, DSC)
 *   This routine is local to TEST_GELD_CMD.
 *
-*   Add the command NAME to the end of the commands list.  DSC is a brief
-*   description of the command.
+*   Add the command name in CMDSTR to the end of the commands list.  CMDSTR may
+*   contain command parameter descriptions after the command name.  DSC is a
+*   brief description of the command.
 }
 procedure add_command (                {add command to commands list}
-  in      name: string;                {name of command and parameters description}
+  in      cmdstr: string;              {name of command and parameters description}
   in      dsc: string);                {short command description}
   val_param; internal;
 
@@ -72,7 +78,7 @@ begin
   dstr.max := size_char(dstr.str);
   dstr.len := 0;                       {init description string to empty}
 
-  string_vstring (vstr, name, -1);     {make name and parameters var string}
+  string_vstring (vstr, cmdstr, size_char(cmdstr)); {make name and parameters var string}
   p := 1;                              {init CMDSTR parse index}
 {
 *   Extract the bare command name from cmd/parameters string.  Add the command
@@ -105,7 +111,7 @@ begin
 {
 *   Append the string in DSC to the end of the description string.
 }
-  string_vstring (vstr, dsc, -1);      {make var string bare description}
+  string_vstring (vstr, dsc, size_char(dsc)); {make var string bare description}
   if vstr.len > 0 then begin           {there is a description to add ?}
     while dstr.len < namewid do begin  {pad command/parameters to common column}
       string_append1 (dstr, ' ');
@@ -169,11 +175,33 @@ begin
     'List meters');
   add_command ('LR [Y/M/D.h:m]',       {6}
     'List readings of current meter');
+  add_command ('CLASS [-]class ... [-]class', {7}
+    'Show/set rate classes, ALL for all, "-" removes');
+  add_command ('AVE',                  {8}
+    'Get average power per hour of day');
+  add_command ('TR [time1 time2]',     {9}
+    'Show or set time range, YYYY/MM/DD.hh:mm:ss');
 {
 *   Initialize local state before command processing.
 }
   string_vstring (prompt, prompt_text, -1); {set PROMPT to the prompt string}
   meter_p := nil;                      {init to no current meter}
+  classes := ~setof(geld_rateclass_t); {init list of classes to all}
+  classes := classes - [geld_rateclass_none_k];
+
+  string_t_time1 (                     {init start of time interval}
+    string_v('2025/'(0)),              {time string}
+    true,                              {interpret as local time}
+    tstart,                            {returned time value}
+    stat);
+  sys_error_abort (stat, '', '', nil, 0);
+
+  string_t_time1 (                     {init start of time interval}
+    string_v('2026/'(0)),              {time string}
+    true,                              {interpret as local time}
+    tend,                              {returned time value}
+    stat);
+  sys_error_abort (stat, '', '', nil, 0);
 {
 *   Get the next command from the user.
 }
@@ -332,6 +360,110 @@ loop_command:
     end;                               {back for next reading}
 
   writeln (ii, ' readings shown.');
+  end;
+{
+********************
+*
+*   CLASS [-]class ... [-]class
+*
+*   Set the list of rate classes to operate on.  "ALL" selects all classes.
+*   Leading "-" removes class from list.  Use 2-letter code to identify a class.
+}
+7: begin
+  if p <= cmline.len then begin        {there is something after the command ?}
+    classes := [];                     {init to no classes in the set}
+    while true do begin                {back here each new command parameter}
+      string_token (cmline, p, parm, stat); {get next command parameter}
+      if string_eos(stat) then exit;   {exhausted the command line ?}
+      if parm.len < 2 then goto parm_bad; {too short to be rate class code}
+      string_upcase (parm);            {make upper case for keyword matching}
+      if string_equal (parm, string_v('ALL'(0))) then begin {special "ALL" keyword ?}
+        classes := ~setof(geld_rateclass_t);
+        classes := classes - [geld_rateclass_none_k];
+        next;
+        end;
+      b1 := true;                      {init to adding class, not removing it}
+      if parm.str[1] = '-' then begin  {removing the class ?}
+        b1 := false;
+        if parm.len < 3 then goto parm_bad; {too short to include class code ?}
+        for ii := 1 to parm.len-1 do begin {shift left one to remove "-"}
+          parm.str[ii] := parm.str[ii + 1];
+          end;
+        parm.len := parm.len - 1;
+        end;
+      class := geld_rateclass_f_code (parm); {interpret rate class from code}
+      if class = geld_rateclass_none_k then goto parm_bad; {invalid class code ?}
+      if b1
+        then classes := classes + [class] {add this rate class}
+        else classes := classes - [class]; {remove this rate class}
+      end;                             {back for next command parameter}
+    end;                               {end of command parameters case}
+
+  write ('Enabled rate classes:');
+  for class := geld_rateclass_first to geld_rateclass_last do begin
+    if not (class in classes) then next; {this rate class not enabled ?}
+    geld_rateclass_t_code (class, parm); {make rate class code}
+    write (' ', parm.str:parm.len);    {show it}
+    end;                               {back for next rate class}
+  writeln;
+  end;
+{
+********************
+*
+*   AVE
+*
+*   Compute and show the average power per hour of day.  The current list of
+*   classes set with the CLASS command will be applied.
+}
+8: begin
+  if not_eol then goto parm_extra;
+
+  geld_avepower (                      {compute average power}
+    geld_p^,                           {library use state}
+    hour,                              {returned averages}
+    24,                                {number of entries in data array}
+    3600,                              {seconds per data array entry}
+    tstart, tend,                      {start/end time to average over}
+    classes);                          {rate classes to include in averages}
+
+  for ii := 0 to 23 do begin           {once for each hour}
+    string_f_fp (                      {make kW string}
+      parm,                            {output string}
+      hour[ii] / 1000.0,               {input value}
+      15,                              {field width}
+      0,                               {field width of exponent}
+      0,                               {min required significant digits}
+      12,                              {max digits allowed left of point}
+      3, 3,                            {min/max digits right of point}
+      [string_ffp_group_k],            {show digits in groups}
+      stat);
+    writeln (ii:2, parm.str:parm.len, ' kW');
+    end;                               {back for next hour}
+  end;
+{
+********************
+*
+*   TR time1 time2
+}
+9: begin
+  string_token (cmline, p, parm, stat); {get TIME1}
+  if not string_eos(stat) then begin   {other than no command parameters ?}
+    if sys_error(stat) then goto error;
+    string_t_time1 (parm, true, tstart, stat); {interpret into TSTART}
+    if sys_error(stat) then goto error;
+
+    string_token (cmline, p, parm, stat); {get TIME2}
+    if sys_error(stat) then goto error;
+    string_t_time1 (parm, true, tend, stat); {interpret into TEND}
+    if sys_error(stat) then goto error;
+
+    if not_eol then goto parm_extra;
+    end;
+
+  sys_clock_str1 (tstart, parm);       {make starting time string}
+  write ('Time range ', parm.str:parm.len);
+  sys_clock_str1 (tend, parm);         {make ending time string}
+  writeln (' - ', parm.str:parm.len);
   end;
 {
 ********************

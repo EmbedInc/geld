@@ -168,7 +168,7 @@ begin
 *   Initialize the IDs list position POS to before the start of the list.
 }
 procedure geld_id_pos_start (          {init IDs position to start of list}
-  in out  geld: geld_t;                {library use state}
+  in      geld: geld_t;                {library use state}
   out     pos: geld_idpos_t);          {returned initialized position in IDs list}
   val_param;
 
@@ -222,7 +222,7 @@ begin
 *   and a position after the end of the list.
 }
 procedure geld_id_next (               {to next ID in list}
-  in out  geld: geld_t;                {library use state}
+  in      geld: geld_t;                {library use state}
   in out  pos: geld_idpos_t;           {position with IDs list, will be updated}
   out     meter_p: geld_meter_p_t);    {to meter with next higher ID, NIL at list end}
   val_param;
