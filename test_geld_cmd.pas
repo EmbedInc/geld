@@ -32,8 +32,8 @@ var
   time: sys_clock_t;                   {scratch time}
   intv_p: geld_intv_p_t;               {to meter reading of time interval}
   hour: array[0..23] of double;        {average Watts in each hour}
-  class: geld_rateclass_k_t;           {scratch rate class ID}
-  classes: geld_rateclass_t;           {rate classes to include in operations}
+  class: sys_int_machine_t;            {scratch rate class ID}
+  classes: geld_classset_t;            {rate classes to include in operations}
   tstart, tend: sys_clock_t;           {start and end of time interval}
 
   cmds: string_var1024_t;              {command names, blank-separated, upper case}
@@ -186,8 +186,7 @@ begin
 }
   string_vstring (prompt, prompt_text, -1); {set PROMPT to the prompt string}
   meter_p := nil;                      {init to no current meter}
-  classes := ~setof(geld_rateclass_t); {init list of classes to all}
-  classes := classes - [geld_rateclass_none_k];
+  classes := geld_classset_all (geld_p^); {init list of classes to all}
 
   string_t_time1 (                     {init start of time interval}
     string_v('2025/'(0)),              {time string}
@@ -284,7 +283,7 @@ loop_command:
       end
     ;
 
-  geld_show_meter (meter_p^);          {show basic info about this meter}
+  geld_show_meter (geld_p^, meter_p^); {show basic info about this meter}
   end;
 {
 ********************
@@ -313,7 +312,7 @@ loop_command:
   ii := 0;                             {init number of meters shown}
   geld_id_pos_id (geld_p^, meterid, met_p, pos); {start at or after indicated meter}
   while met_p <> nil do begin          {back here each new meter}
-    geld_show_meter (met_p^);          {show basic info about this meter}
+    geld_show_meter (geld_p^, met_p^); {show basic info about this meter}
     ii := ii + 1;                      {count one more meter shown}
     i1 := i1 - 1;                      {one less list entry allowed to show}
     if i1 <= 0 then exit;              {already showed max allowed meters ?}
@@ -371,15 +370,14 @@ loop_command:
 }
 7: begin
   if p <= cmline.len then begin        {there is something after the command ?}
-    classes := [];                     {init to no classes in the set}
+    classes := geld_classset_none (geld_p^); {init to no classes in the set}
     while true do begin                {back here each new command parameter}
       string_token (cmline, p, parm, stat); {get next command parameter}
       if string_eos(stat) then exit;   {exhausted the command line ?}
       if parm.len < 2 then goto parm_bad; {too short to be rate class code}
       string_upcase (parm);            {make upper case for keyword matching}
       if string_equal (parm, string_v('ALL'(0))) then begin {special "ALL" keyword ?}
-        classes := ~setof(geld_rateclass_t);
-        classes := classes - [geld_rateclass_none_k];
+        classes := geld_classset_all (geld_p^); {set to all rate classes}
         next;
         end;
       b1 := true;                      {init to adding class, not removing it}
@@ -391,18 +389,18 @@ loop_command:
           end;
         parm.len := parm.len - 1;
         end;
-      class := geld_rateclass_f_code (parm); {interpret rate class from code}
+      class := geld_rateclass_f_code (geld_p^, parm); {interpret rate class from code}
       if class = geld_rateclass_none_k then goto parm_bad; {invalid class code ?}
       if b1
-        then classes := classes + [class] {add this rate class}
-        else classes := classes - [class]; {remove this rate class}
+        then geld_classset_add (geld_p^, class, classes) {add this rate class}
+        else geld_classset_sub (geld_p^, class, classes) {remove this rate class}
       end;                             {back for next command parameter}
     end;                               {end of command parameters case}
 
   write ('Enabled rate classes:');
-  for class := geld_rateclass_first to geld_rateclass_last do begin
-    if not (class in classes) then next; {this rate class not enabled ?}
-    geld_rateclass_t_code (class, parm); {make rate class code}
+  for class := 1 to geld_p^.nrateclasses do begin {scan the rate classes}
+    if not geld_classset_in (geld_p^, class, classes) then next; {this class not enabled ?}
+    geld_rateclass_t_code (geld_p^, class, parm); {make rate class code}
     write (' ', parm.str:parm.len);    {show it}
     end;                               {back for next rate class}
   writeln;

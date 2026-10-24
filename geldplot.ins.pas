@@ -32,7 +32,7 @@ type
     end;
 
   dataset_t = record                   {control of what data is included in plot}
-    rateclass: geld_rateclass_t;       {which rate classes to include}
+    rateclass: geld_classset_t;        {which rate classes to include}
     end;
 
   plotctrl_t = record                  {plot control parameters}

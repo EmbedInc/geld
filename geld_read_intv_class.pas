@@ -9,7 +9,7 @@ define geld_read_intv_class;
 *
 *   Read the CSV file FNAM, which contains measured intervals of possibly
 *   multiple meters.  All data in the file is for the rate class CLASS.  It is
-*   an error if data for a meter is encountered that was previously set a
+*   an error if data for a meter is encountered that was previously set to a
 *   different rate class.
 *
 *   The input file is not expected to have a header line.  An example data line
@@ -33,7 +33,7 @@ define geld_read_intv_class;
 procedure geld_read_intv_class (       {read interval data file for specific rate class}
   in out  geld: geld_t;                {library use state}
   in      fnam: univ string_var_arg_t; {name of file to read, ".csv" suffix assumed}
-  in      class: geld_rateclass_k_t;   {rate class for all data in the file}
+  in      class: sys_int_machine_t;    {rate class ID for all data in the file}
   out     stat: sys_err_t);            {completion status}
   val_param;
 

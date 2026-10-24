@@ -1,5 +1,5 @@
                       Files used by the GELD library
-                             17 October 2026
+                             22 October 2026
 
 This file describes the files and their format that are read or written by
 the Embed GELD library.  The GELD library provides a procedural interface
@@ -9,12 +9,23 @@ Electric Light Department in Groton Massachusetts.
 The input data files are organized in a file system tree with the
 following objects:
 
+  File RATECLASSES.CSV
+
+    CSV (comma-separated value) file that lists the various rate classes.
+    The short 2-letter code and text description is provided for each rate
+    class.
+
+    This CSV file has no header line.  Each line defines one rate class.
+    The first field is the short 2-letter rate code for the rate class,
+    and the second a text description of the rate class.  Additional
+    fields may be present but are ignored.
+
   File MULTIPLIER.CSV
 
-    CSV (comma-separated value) file that provides multiplier values for
-    electric meters.  The multiplier for each meter is the value to scale
-    raw readings with to result in units of kWh.  Meters that are not
-    listed in this file are assumed to have a multiplier of 1.
+    CSV file that provides multiplier values for electric meters.  The
+    multiplier for each meter is the value to scale raw readings with to
+    result in units of kWh.  Meters that are not listed in this file are
+    assumed to have a multiplier of 1.
 
     This file must exist and must contain a header line of column names.
     The first three fields in the header line must be "METER ID", "RATE",

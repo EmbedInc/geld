@@ -37,7 +37,7 @@ procedure geld_read_mult (             {read meter multipliers file}
 var
   cin: csv_in_t;                       {state for reading CSV data from input file}
   metid: geld_meterid_t;               {ID of the current meter}
-  class: geld_rateclass_k_t;           {rate class for the current meter}
+  class: sys_int_machine_t;            {rate class for the current meter}
   mult: real;                          {multiplier for the current meter}
   meter_p: geld_meter_p_t;             {to descriptor for current meter}
   tk: string_var32_t;                  {one token read from CSV file}
@@ -113,7 +113,7 @@ err_header:
     {
     *   Process the values and create or update the data for this meter.
     }
-    class := geld_rateclass_f_code (tk); {interpret rate class code}
+    class := geld_rateclass_f_code (geld, tk); {interpret rate class code}
     if class = geld_rateclass_none_k then begin {invalid code ?}
       sys_stat_set (geld_subsys_k, geld_stat_bclass_k, stat);
       goto err_atline;

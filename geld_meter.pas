@@ -45,19 +45,24 @@ begin
 function geld_meter_class_set (        {set rate class for a meter}
   in out  geld: geld_t;                {library use state}
   in out  meter: geld_meter_t;         {meter to set rateclass of}
-  in      class: geld_rateclass_k_t)   {rate class of this meter}
+  in      class: sys_int_machine_t)    {rate class of this meter}
   :boolean;                            {success, class was previously same or not set}
   val_param;
 
 begin
+  if (class < 0) or (class > geld.nrateclasses) then begin {bad rate class ID ?}
+    geld_meter_class_set := false;
+    return;
+    end;
+
   geld_meter_class_set := true;        {init to indicate success}
 
   if meter.class = class then return;  {already set to the selected class ?}
 
   if meter.class = geld_rateclass_none_k then begin {not yet set to a specific class ?}
     meter.class := class;              {set the meter to CLASS}
-    geld.stat_class[class].nmeters :=  {count one more meter of this class}
-      geld.stat_class[class].nmeters + 1;
+    geld.rateclass_p^[class].nmeters := {count one more meter in this rate class}
+      geld.rateclass_p^[class].nmeters + 1;
     return;
     end;
 
@@ -119,16 +124,14 @@ begin
     kwh);                              {consumed energy in kWh}
 
   meter.nintv := meter.nintv + 1;      {count one more measured interval this meter}
-  geld.stat_class[meter.class].nintv := {count one more interval this rate class}
-    geld.stat_class[meter.class].nintv + 1;
-  geld.stat_class[geld_rateclass_none_k].nintv := {count one more interval globally}
-    geld.stat_class[geld_rateclass_none_k].nintv + 1;
+  geld.rateclass_p^[meter.class].nintv := {count one more interval this rate class}
+    geld.rateclass_p^[meter.class].nintv + 1;
+  geld.nintv := geld.nintv + 1;        {count one more interval globally}
 
   meter.kwh := meter.kwh + kwh;        {update total kWh for this meter}
-  geld.stat_class[meter.class].kwh :=  {update total kWh for this rate class}
-    geld.stat_class[meter.class].kwh + kwh;
-  geld.stat_class[geld_rateclass_none_k].kwh := {update total kWh globally}
-    geld.stat_class[geld_rateclass_none_k].kwh + kwh;
+  geld.rateclass_p^[meter.class].kwh := {update total kWh for this rate class}
+    geld.rateclass_p^[meter.class].kwh + kwh;
+  geld.kwh := geld.kwh + kwh;          {update total kWh globally}
 {
 *   Handle special case of this is first measured intervals list entry.
 }

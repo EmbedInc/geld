@@ -4,7 +4,7 @@ define geld_avepower;
 {
 ********************************************************************************
 *
-*   Subroutine GELD_AVEPOWER (GELD, POWER, NPOWER, SLSEC, ST, EN, CLASS)
+*   Subroutine GELD_AVEPOWER (GELD, POWER, NPOWER, SLSEC, ST, EN, CLASSES)
 *
 *   Compute the average power consumed over a time interval into a fixed set of
 *   time slices.  Power is averaged per meter, but summed across meters.
@@ -15,7 +15,7 @@ define geld_avepower;
 *
 *   ST and EN are the start and end times within which to compute the averages.
 *
-*   CLASS is the set of rate classes to include in the averaged data.
+*   CLASSES is the set of rate classes to include in the averaged data.
 *
 *   The start of the first time slice is aligned with ST.  The time slice array
 *   is wrapped as needed when the ending time exceeds the start time plus the
@@ -32,7 +32,7 @@ procedure geld_avepower (              {compute average power over interval}
   in      npower: sys_int_machine_t;   {number of POWER entries, wrapped as needed}
   in      slsec: sys_int_machine_t;    {size of each slice, seconds}
   in      st, en: sys_clock_t;         {start and end time to average over}
-  in      classes: geld_rateclass_t);  {set of rate classes to include}
+  in      classes: geld_classset_t);   {set of rate classes to include}
   val_param;
 
 type
@@ -85,7 +85,7 @@ begin
   while true do begin                  {back here each new meter ID in list}
     geld_id_next (geld, posid, meter_p); {get pointer to next meter in list}
     if meter_p = nil then exit;        {hit end of meter IDs list ?}
-    if not (meter_p^.class in classes) {not accumulating data for this class ?}
+    if not geld_classset_in (geld, meter_p^.class, classes) {not including this class ?}
       then next;
     for ind := 0 to plast do begin     {init values from this meter}
       ave_p^[ind] := 0.0;              {init accumulated values}

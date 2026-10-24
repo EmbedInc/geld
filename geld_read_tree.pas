@@ -13,7 +13,7 @@ define geld_read_tree;
 procedure subdir (                     {process top level file}
   in out  geld: geld_t;                {library use state}
   in      pnam: univ string_var_arg_t; {directory pathname}
-  in      class: geld_rateclass_k_t;   {rate class for all files in this subdir}
+  in      class: sys_int_machine_t;    {rate class for all files in this subdir}
   out     stat: sys_err_t);            {completion status}
   val_param; internal;
 
@@ -137,7 +137,7 @@ var
   dent: string_leafname_t;             {directory entry}
   conn: file_conn_t;                   {connection to top level directory}
   finfo: file_info_t;                  {info about directory entry}
-  class: geld_rateclass_k_t;           {rate class ID}
+  class: sys_int_machine_t;            {rate class ID}
   dt: double;                          {elapsed seconds}
 
 label
@@ -149,6 +149,15 @@ begin
   dent.max := size_char(dent.str);
 
   tstart := sys_clock;                 {save starting time}
+{
+*   Read the rate classes file.  This sets the number of rate classes and
+*   creates the array of rate class data.
+}
+  string_pathname_join (dir, string_v('rateclasses.csv'), fnam);
+  string_treename (fnam, tnam);        {make full absolute pathname}
+  writeln ('Reading "', tnam.str:tnam.len, '".');
+  geld_read_rateclasses (geld, tnam, stat);
+  if sys_error(stat) then return;
 {
 *   Read the meter multipliers file.  All meters not listed in this file will be
 *   assumed to have a multiplier of 1.
@@ -174,7 +183,7 @@ begin
     if file_eof(stat) then exit;       {end of top level directory ?}
     if sys_error(stat) then goto leave; {hard error ?}
 
-    class := geld_rateclass_f_code (dent); {try to get rate class from name}
+    class := geld_rateclass_f_code (geld, dent); {try to get rate class from name}
     if class = geld_rateclass_none_k then next; {not a valid name}
 
     string_pathname_join (conn.tnam, dent, fnam); {make full pathname of this entry}

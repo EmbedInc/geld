@@ -22,7 +22,6 @@ procedure geld_lib_new (               {create new use of the GELD library}
 
 var
   mem_p: util_mem_context_p_t;         {to our new private memory context}
-  class: geld_rateclass_k_t;           {current rate class}
 
 begin
   util_mem_context_get (mem, mem_p);   {create our new subordinate memory context}
@@ -35,14 +34,14 @@ begin
 *   Initialize the new library use state.
 }
   geld_p^.mem_p := mem_p;              {save pointer context for new dyn memory}
-  geld_id_node_init (nil, geld_p^.idtree); {initialize root meter IDs tree node}
   geld_p^.nfiles := 0;                 {init to no data files read}
   geld_p^.tread := 0.0;                {init time spent reading tree of files}
-  for class := firstof(class) to lastof(class) do begin
-    geld_p^.stat_class[class].nmeters := 0;
-    geld_p^.stat_class[class].nintv := 0;
-    geld_p^.stat_class[class].kwh := 0.0;
-    end;
+  geld_id_node_init (nil, geld_p^.idtree); {initialize root meter IDs tree node}
+  geld_p^.nmeters := 0;                {init total number of electric meters}
+  geld_p^.nintv := 0;                  {init total number of meter reading intervals}
+  geld_p^.kwh := 0.0;                  {init total kWh measured}
+  geld_p^.nrateclasses := 0;           {init to no rate classes defined}
+  geld_p^.rateclass_p := nil;
   end;
 {
 ********************************************************************************

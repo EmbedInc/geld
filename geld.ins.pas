@@ -2,6 +2,9 @@
 *   for reading and processing Groton Electric Light Department data.
 }
 const
+{
+*   Error and status codes.
+}
   geld_subsys_k = -90;                 {Embed subsystem ID for the GELD library}
   geld_stat_multhead_k = 1;            {invalid multipliers file header line}
   geld_stat_bmet_k = 2;                {bad meter ID in CSV file}
@@ -15,10 +18,13 @@ const
   geld_stat_baddate_k = 10;            {bad MM/DD/YEAR date string in file}
   geld_stat_badhhmm_k = 11;            {bad HH:MM time string in file}
   geld_stat_bmetper_k = 12;            {attempt to change meter period in file}
-
+  geld_stat_rddesc_k = 13;             {error reading rate class description}
+{
+*   Configuration constants.
+}
   geld_idlev_bits = 4;                 {meter ID bits per level of IDs tree}
   geld_idbits = 32;                    {max bits per meter ID}
-
+  geld_rateclass_none_k = 0;           {special rate class ID for none or unknown}
 {
 *   Derived constants.
 }
@@ -30,29 +36,21 @@ const
   geld_idlev_mask = geld_maxbranch;    {mask for ID bits per level}
 
 type
-  geld_rateclass_k_t = (               {IDs for each rate class}
-    geld_rateclass_none_k,             {class not set or unknown}
-    geld_rateclass_c1_k,               {commercial}
-    geld_rateclass_c2_k,               {commerical solar}
-    geld_rateclass_f1_k,               {farm}
-    geld_rateclass_r2_k,               {farm solar}
-    geld_rateclass_g1_k,               {municipal}
-    geld_rateclass_g2_k,               {non-profit}
-    geld_rateclass_ge_k,               {GELD internal use}
-    geld_rateclass_hh_k,               {home heating}
-    geld_rateclass_ht_k,               {high tension}
-    geld_rateclass_md_k,               {municipal demand}
-    geld_rateclass_r4_k,               {residential farm solar}
-    geld_rateclass_sb_k,               {solar battery}
-    geld_rateclass_ts_k,               {time of use solar}
-    geld_rateclass_tu_k);              {time of use}
-  geld_rateclass_t = set of geld_rateclass_k_t;
+  geld_rateclass_t = record
+    id: sys_int_machine_t;             {1-N unique ID}
+    code: string_var4_t;               {short 2-letter code, upper case}
+    desc: string_var80_t;              {description string}
+    nmeters: sys_int_machine_t;        {number of meters}
+    nintv: sys_int_machine_t;          {number of meter reading intervals}
+    kwh: double;                       {total kWh consumed}
+    end;
 
-const
-  geld_rateclass_first = succ(firstof(geld_rateclass_k_t)); {first real rate class}
-  geld_rateclass_last = lastof(geld_rateclass_k_t); {last real rate class}
+  geld_rateclass_ar_p_t = ^geld_rateclass_ar_t;
+  geld_rateclass_ar_t =                {array of rate classes}
+    array[1..8] of geld_rateclass_t;   {each class, array dimensioned at run time}
 
-type
+  geld_classset_t = sys_int_conv32_t;  {arbitrary set of rate classes}
+
   geld_meterid_t = sys_int_conv32_t;   {ID of one meter}
 
   geld_intv_p_t = ^geld_intv_t;
@@ -66,7 +64,7 @@ type
   geld_meter_p_t = ^geld_meter_t;
   geld_meter_t = record                {data about one electric meter}
     id: geld_meterid_t;                {meter ID}
-    class: geld_rateclass_k_t;         {rate class ID}
+    class: sys_int_machine_t;          {rate class ID}
     mult: real;                        {meter reading multiplier to make kWh}
     period: sys_int_conv32_t;          {seconds reading period, 0 = unknown}
     nintv: sys_int_machine_t;          {number of measured intervals in list}
@@ -103,17 +101,6 @@ geld_idnode_last_k: (                  {lowest tree node, points to leaves}
     br: sys_int_machine_t;             {0-N branch within node}
     end;
 
-  geld_stat_class_t = record           {statistics about one rate class}
-    nmeters: sys_int_machine_t;        {number of meters}
-    nintv: sys_int_machine_t;          {number of meter reading intervals}
-    kwh: double;                       {total kWh consumed}
-    end;
-
-  geld_stat_classes_t = array          {stats for each rate class}
-    [firstof(geld_rateclass_k_t)       {class NONE is totals for all}
-      .. lastof(geld_rateclass_k_t)]
-    of geld_stat_class_t;
-
   geld_power_p_t = ^geld_power_t;
   geld_power_t =                       {average power per slice, size variable}
     array[0..128] of double;
@@ -121,10 +108,14 @@ geld_idnode_last_k: (                  {lowest tree node, points to leaves}
   geld_p_t = ^geld_t;
   geld_t = record                      {state for this use of the GELD library}
     mem_p: util_mem_context_p_t;       {to mem context for this lib use}
-    idtree: geld_idnode_t;             {root node of meter IDs tree}
     nfiles: sys_int_machine_t;         {number of data files read}
     tread: real;                       {time reading data files tree, seconds}
-    stat_class: geld_stat_classes_t;   {stats separate rate classes and total}
+    idtree: geld_idnode_t;             {root node of meter IDs tree}
+    nmeters: sys_int_machine_t;        {total number of meters}
+    nintv: sys_int_machine_t;          {total number of meter reading intervals}
+    kwh: double;                       {total kWh measured}
+    nrateclasses: sys_int_machine_t;   {number of rate classes}
+    rateclass_p: geld_rateclass_ar_p_t; {to rate classes, index 1 - NRATECLASSES}
     end;
 {
 *   Subroutines and functions.
@@ -135,7 +126,42 @@ procedure geld_avepower (              {compute average power over interval}
   in      npower: sys_int_machine_t;   {number of POWER entries, wrapped as needed}
   in      slsec: sys_int_machine_t;    {size of each slice, seconds}
   in      st, en: sys_clock_t;         {start and end time to average over}
-  in      classes: geld_rateclass_t);  {set of rate classes to include}
+  in      classes: geld_classset_t);   {set of rate classes to include}
+  val_param; extern;
+
+procedure geld_classset_add (          {add a rate class to set of rate classes}
+  in      geld: geld_t;                {library use state}
+  in      class: sys_int_machine_t;    {the rate class to add to the set}
+  in out  classset: geld_classset_t);  {set to add the rate class to}
+  val_param; extern;
+
+function geld_classset_all (           {return the set of all rate classes}
+  in      geld: geld_t)                {library use state}
+  :geld_classset_t;
+  val_param; extern;
+
+function geld_classset_empty (         {determine whether a set of rate classes is empty}
+  in      geld: geld_t;                {library use state}
+  in      classset: geld_classset_t)   {the set of rate classes to check}
+  :boolean;                            {the set is empty}
+  val_param; extern;
+
+function geld_classset_none (          {return the empty set of rate classes}
+  in      geld: geld_t)                {library use state}
+  :geld_classset_t;
+  val_param; extern;
+
+function geld_classset_in (            {determine if a rate class is in a set}
+  in      geld: geld_t;                {library use state}
+  in      class: sys_int_machine_t;    {rate class ID}
+  in      classset: geld_classset_t)   {set of rate classes}
+  :boolean;                            {CLASS is in the set}
+  val_param; extern;
+
+procedure geld_classset_sub (          {remove a rate class from set of rate classes}
+  in      geld: geld_t;                {library use state}
+  in      class: sys_int_machine_t;    {the rate class to remove from the set}
+  in out  classset: geld_classset_t);  {set to remove the rate class from}
   val_param; extern;
 
 procedure geld_id_find (               {find specific meter}
@@ -218,7 +244,7 @@ procedure geld_meter_intv_add (        {add measured interval to data for a mete
 function geld_meter_class_set (        {set rate class for a meter}
   in out  geld: geld_t;                {library use state}
   in out  meter: geld_meter_t;         {meter to set rateclass of}
-  in      class: geld_rateclass_k_t)   {rate class of this meter}
+  in      class: sys_int_machine_t)    {rate class ID of this meter}
   :boolean;                            {success, class was previously same or not set}
   val_param; extern;
 
@@ -241,23 +267,31 @@ function geld_meter_period_set (       {set reading period for a meter}
   val_param; extern;
 
 function geld_rateclass_f_code (       {get rate class ID from 2-lett code}
+  in      geld: geld_t;                {library use state}
   in      code: univ string_var_arg_t) {string, starts with rate class 2-lett code}
-  :geld_rateclass_k_t;                 {rate class ID indicated by the string}
+  :sys_int_machine_t;                  {1-N rate class or GELD_RATECLASS_NONE_K}
   val_param; extern;
 
-procedure geld_rateclass_t_code (      {make 2-letter rate class code from ID}
-  in      class: geld_rateclass_k_t;   {rate class ID}
+procedure geld_rateclass_t_code (      {get 2-letter rate class code from ID}
+  in      geld: geld_t;                {library use state}
+  in      class: sys_int_machine_t;    {rate class ID}
   in out  code: univ string_var_arg_t); {returned 2 letter code, empty for invalid}
   val_param; extern;
 
 procedure geld_read_intv_class (       {read interval data file for specific rate class}
   in out  geld: geld_t;                {library use state}
   in      fnam: univ string_var_arg_t; {name of file to read, ".csv" suffix assumed}
-  in      class: geld_rateclass_k_t;   {rate class for all data in the file}
+  in      class: sys_int_machine_t;    {rate class ID for all data in the file}
   out     stat: sys_err_t);            {completion status}
   val_param; extern;
 
 procedure geld_read_mult (             {read meter multipliers file}
+  in out  geld: geld_t;                {library use state}
+  in      fnam: univ string_var_arg_t; {name of file to read, ".csv" suffix assumed}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure geld_read_rateclasses (      {read rate classes definition file}
   in out  geld: geld_t;                {library use state}
   in      fnam: univ string_var_arg_t; {name of file to read, ".csv" suffix assumed}
   out     stat: sys_err_t);            {completion status}
@@ -270,6 +304,7 @@ procedure geld_read_tree (             {read tree of GELD data files}
   val_param; extern;
 
 procedure geld_show_meter (            {show basic info about a meter}
+  in      geld: geld_t;                {library use state}
   in      meter: geld_meter_t);        {meter to show info about}
   val_param; extern;
 

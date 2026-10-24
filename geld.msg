@@ -40,3 +40,6 @@ msg err12
     Attempt to re-define meter measuring interval.  The interval was
     previously set to %p1f7.1 minutes, now being set to %p2f7.1.  Error
     encountered on line %p4i of file "%p3s".
+msg err13
+  lan english -def
+    Error reading rate class description on line %p2i of file "%p1s".

@@ -19,8 +19,6 @@ begin
   plotctrl.outty := outty_screen_k;
   plotctrl.xaxis.cfg := xaxis_cfg_day_k;
   plotctrl.yaxis.cfg := yaxis_cfg_power_k;
-  plotctrl.dataset.rateclass := ~setof(geld_rateclass_t);
-  plotctrl.dataset.rateclass := plotctrl.dataset.rateclass - [geld_rateclass_none_k];
   plotctrl.sizex := 1920;
   plotctrl.sizex := 1080;
   plotctrl.posx := 0;
@@ -37,6 +35,8 @@ begin
   geld_read_tree (geld_p^, datadir, stat); {read the tree of data files}
   sys_error_abort (stat, '', '', nil, 0);
   geld_show_read_stats (geld_p^);      {show stats about reading data files}
+  plotctrl.dataset.rateclass :=        {init to include all rate classes in operations}
+    geld_classset_all (geld_p^);
 
   geldplot_cmd;                        {run the command processor}
 

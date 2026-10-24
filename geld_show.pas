@@ -8,11 +8,12 @@ define geld_show_read_stats;
 {
 ********************************************************************************
 *
-*   Subroutine GELD_SHOW_METER (METER)
+*   Subroutine GELD_SHOW_METER (GELD, METER)
 *
 *   Show basic one-line info about the meter from the current output position.
 }
 procedure geld_show_meter (            {show basic info about a meter}
+  in      geld: geld_t;                {library use state}
   in      meter: geld_meter_t);        {meter to show info about}
   val_param;
 
@@ -25,7 +26,7 @@ begin
 
   write (meter.id:10);                 {meter ID}
 
-  geld_rateclass_t_code (meter.class, tk); {make rate class code}
+  geld_rateclass_t_code (geld, meter.class, tk); {make rate class code}
   if tk.len = 0 then begin             {no rate class set ?}
     string_vstring (tk, '--', 2);      {show dashes}
     end;
@@ -116,33 +117,55 @@ begin
 }
 procedure show_class (                 {show stats for one rate class}
   in      geld: geld_t;                {library use state}
-  in      cl: geld_rateclass_k_t);     {rate class to show stats for}
+  in      cl: sys_int_machine_t);      {ID of rate class to show stats for}
   val_param; internal;
 
 var
+  totals: boolean;                     {showing totals for all rate classes}
   tk: string_var32_t;                  {scratch token}
+  jj: sys_int_conv32_t;                {scratch 32 bit integer}
   d: double;                           {scratch floating point}
   stat: sys_err_t;                     {completion status}
 
 begin
   tk.max := size_char(tk.str);         {init local var string}
-
+{
+*   Validate CL and set TOTALS according to whether showing the totals for all
+*   rate classes or the values for a specific rate class.
+}
   if cl = geld_rateclass_none_k
-    then begin                         {showing totals}
-      string_vstring (tk, 'Total'(0), -1);
+    then begin                         {show totals for all rate classes}
+      totals := true;
       end
-    else begin                         {showing a specific rate class}
-      geld_rateclass_t_code (cl, tk);  {make rate class code}
+    else begin                         {show data for the specific rate class CL}
+      if (cl < 1) or (cl > geld.nrateclasses) then return; {invalid rate class ID ?}
+      totals := false;
       end
     ;
-  string_nblanks (5 - tk.len);         {leading blanks before rate class code}
+{
+*   Show rate class code or "Total".
+}
+  if totals
+    then string_vstring (tk, 'Total'(0), -1)
+    else geld_rateclass_t_code (geld, cl, tk);
+  string_nblanks (5 - tk.len);
   write (tk.str:tk.len);
-
-  write (geld.stat_class[cl].nmeters:8); {show number of meters}
-
+{
+*   Show number of meters.
+}
+  if totals
+    then jj := geld.nmeters
+    else jj := geld.rateclass_p^[cl].nmeters;
+  write (jj:8);                        {show number of meters}
+{
+*   Show number of meter readings.
+}
+  if totals
+    then d := geld.nintv
+    else d := geld.rateclass_p^[cl].nintv;
   string_f_fp (                        {make number of readings string}
     tk,                                {output string}
-    geld.stat_class[cl].nintv,         {input number}
+    d,                                 {input number}
     13,                                {field width}
     0,                                 {free format exponent (not used)}
     1,                                 {min required significant digits}
@@ -152,10 +175,15 @@ begin
     stat);
   sys_error_abort (stat, '', '', nil, 0);
   write (tk.str:tk.len);
-
+{
+*   Show consumed kWh.
+}
+  if totals
+    then d := geld.kwh
+    else d := geld.rateclass_p^[cl].kwh;
   string_f_fp (                        {make kWh string}
     tk,                                {output string}
-    geld.stat_class[cl].kwh,           {input number}
+    d,                                 {input number}
     13,                                {field width}
     0,                                 {free format exponent (not used)}
     1,                                 {min required significant digits}
@@ -165,13 +193,27 @@ begin
     stat);
   sys_error_abort (stat, '', '', nil, 0);
   write (tk.str:tk.len);
-
-  if geld.stat_class[geld_rateclass_none_k].kwh > 0.1 then begin
-    d :=                               {make fraction of total power used}
-      geld.stat_class[cl].kwh /
-      geld.stat_class[geld_rateclass_none_k].kwh;
-    d := d * 100.0;                    {convert to percent}
-    write (d:9:1);                     {show % of total power}
+{
+*   Show percent of total energy.
+}
+  if geld.kwh > 0.1
+    then begin
+      if totals
+        then d := geld.kwh
+        else d := geld.rateclass_p^[cl].kwh;
+      d := d / geld.kwh;               {make fraction of total power used}
+      d := d * 100.0;                  {convert to percent}
+      write (d:9:1);                   {show % of total power}
+      end
+    else begin
+      if not totals then string_nblanks (9);
+      end
+    ;
+{
+*   Show rate class description.
+}
+  if not totals then begin
+    write ('  ', geld.rateclass_p^[cl].desc.str:geld.rateclass_p^[cl].desc.len);
     end;
 
   writeln;
@@ -190,10 +232,8 @@ procedure geld_show_read_stats (       {show stats from reading data files}
 var
   tk: string_var32_t;                  {scratch token}
   d: double;                           {scratch double precision floating point}
-  class, cl: geld_rateclass_k_t;       {current rate class}
-  clshow: array                        {which rate classes still left to show}
-    [geld_rateclass_first .. geld_rateclass_last] of boolean;
-  nclshow: sys_int_machine_t;          {number of rate classes left to show}
+  class, cl: sys_int_machine_t;        {current rate class}
+  clshow: geld_classset_t;             {set of rate classes left to show}
 
 begin
   tk.max := size_char(tk.str);         {init local var string}
@@ -202,27 +242,23 @@ begin
   writeln (geld.nfiles, ' files read in ', tk.str:tk.len, ' seconds.');
 
   writeln;
-  writeln (' Rate                                    % Total');
-  writeln ('class  Meters     Readings          kWh    power');
-  writeln ('-----  ------  -----------  -----------  -------');
+  writeln (' Rate                                    % Total  Rate class');
+  writeln ('class  Meters     Readings          kWh    power  description');
+  writeln ('-----  ------  -----------  -----------  -------  -----------');
 
-  for class := geld_rateclass_first to geld_rateclass_last do begin
-    clshow[class] := true;             {init to all classes left to show}
-    end;
-  nclshow := ord(geld_rateclass_last) - ord(geld_rateclass_first) + 1; {N to show}
+  clshow := geld_classset_all (geld);  {init to all rate classes left to show}
 
-  while nclshow > 0 do begin           {back here until all rate classes shown}
+  while not geld_classset_empty (geld, clshow) do begin {loop while class left to show}
     d := -1.0;                         {init highest kWh found so far}
-    for cl := geld_rateclass_first to geld_rateclass_last do begin {scan classes}
-      if not clshow[cl] then next;     {not show this class ?}
-      if geld.stat_class[cl].kwh > d then begin {found better class to show next ?}
+    for cl := 1 to geld.nrateclasses do begin {scan the classes}
+      if not geld_classset_in (geld, cl, clshow) then next; {not show this class ?}
+      if geld.rateclass_p^[cl].kwh > d then begin {found better class to show next ?}
         class := cl;                   {update class to show next}
-        d := geld.stat_class[class].kwh; {update highest kWh found so far}
+        d := geld.rateclass_p^[cl].kwh; {update highest kWh found so far}
         end;
       end;                             {back to check next rate class}
     show_class (geld, class);          {show stats for this rate class}
-    clshow[class] := false;            {don't show this rate class again}
-    nclshow := nclshow - 1;            {one less class left to show}
+    geld_classset_sub (geld, class, clshow); {don't show this rate class again}
     end;                               {back to show next class with highest kWh}
 
   writeln ('-----  ------  -----------  -----------  -------');
