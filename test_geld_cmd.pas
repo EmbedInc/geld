@@ -24,7 +24,6 @@ var
   meter_p: geld_meter_p_t;             {to current meter, if any}
   met_p: geld_meter_p_t;               {scratch meter pointer}
   i1: sys_int_machine_t;               {scratch integer command parameter}
-  b1: boolean;                         {scratch boolean command parameter}
   ii: sys_int_machine_t;               {scratch integer}
   pos: geld_idpos_t;                   {position within meter IDs list}
   posr: geld_intvpos_t;                {position within readings list of a meter}
@@ -175,8 +174,8 @@ begin
     'List meters');
   add_command ('LR [Y/M/D.h:m]',       {6}
     'List readings of current meter');
-  add_command ('CLASS [-]class ... [-]class', {7}
-    'Show/set rate classes, ALL for all, "-" removes');
+  add_command ('CLASS ALL|NONE|[-]class ...', {7}
+    'Show/set rate classes, "-" removes');
   add_command ('AVE',                  {8}
     'Get average power per hour of day');
   add_command ('TR [time1 time2]',     {9}
@@ -363,39 +362,18 @@ loop_command:
 {
 ********************
 *
-*   CLASS [-]class ... [-]class
+*   CLASS cmd ... cmd
 *
-*   Set the list of rate classes to operate on.  "ALL" selects all classes.
-*   Leading "-" removes class from list.  Use 2-letter code to identify a class.
+*   Update the list of rate classes to operate on.  The updated list is shown.
 }
 7: begin
-  if p <= cmline.len then begin        {there is something after the command ?}
-    classes := geld_classset_none (geld_p^); {init to no classes in the set}
-    while true do begin                {back here each new command parameter}
-      string_token (cmline, p, parm, stat); {get next command parameter}
-      if string_eos(stat) then exit;   {exhausted the command line ?}
-      if parm.len < 2 then goto parm_bad; {too short to be rate class code}
-      string_upcase (parm);            {make upper case for keyword matching}
-      if string_equal (parm, string_v('ALL'(0))) then begin {special "ALL" keyword ?}
-        classes := geld_classset_all (geld_p^); {set to all rate classes}
-        next;
-        end;
-      b1 := true;                      {init to adding class, not removing it}
-      if parm.str[1] = '-' then begin  {removing the class ?}
-        b1 := false;
-        if parm.len < 3 then goto parm_bad; {too short to include class code ?}
-        for ii := 1 to parm.len-1 do begin {shift left one to remove "-"}
-          parm.str[ii] := parm.str[ii + 1];
-          end;
-        parm.len := parm.len - 1;
-        end;
-      class := geld_rateclass_f_code (geld_p^, parm); {interpret rate class from code}
-      if class = geld_rateclass_none_k then goto parm_bad; {invalid class code ?}
-      if b1
-        then geld_classset_add (geld_p^, class, classes) {add this rate class}
-        else geld_classset_sub (geld_p^, class, classes) {remove this rate class}
-      end;                             {back for next command parameter}
-    end;                               {end of command parameters case}
+  string_substr (cmline, p, cmline.len, parm); {rest of command line into PARM}
+  geld_classset_f_str (                {process commands to update rate classes list}
+    geld_p^,                           {library use state}
+    classes,                           {set of rate classes to update}
+    parm,                              {commands to update the classes set}
+    stat);
+  if sys_error(stat) then goto error;
 
   write ('Enabled rate classes:');
   for class := 1 to geld_p^.nrateclasses do begin {scan the rate classes}

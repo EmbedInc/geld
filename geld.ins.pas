@@ -19,6 +19,7 @@ const
   geld_stat_badhhmm_k = 11;            {bad HH:MM time string in file}
   geld_stat_bmetper_k = 12;            {attempt to change meter period in file}
   geld_stat_rddesc_k = 13;             {error reading rate class description}
+  geld_stat_clcmd_k = 14;              {invalid rate classes set command}
 {
 *   Configuration constants.
 }
@@ -149,6 +150,13 @@ function geld_classset_empty (         {determine whether a set of rate classes 
 function geld_classset_none (          {return the empty set of rate classes}
   in      geld: geld_t)                {library use state}
   :geld_classset_t;
+  val_param; extern;
+
+procedure geld_classset_f_str (        {update set of rate classes from string}
+  in      geld: geld_t;                {library use state}
+  in out  classset: geld_classset_t;   {set of rate classes to update}
+  in      str: univ string_var_arg_t;  {string of commands}
+  out     stat: sys_err_t);            {completion status}
   val_param; extern;
 
 function geld_classset_in (            {determine if a rate class is in a set}

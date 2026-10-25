@@ -43,3 +43,6 @@ msg err12
 msg err13
   lan english -def
     Error reading rate class description on line %p2i of file "%p1s".
+msg err14
+  lan english -def
+    "%p1s" is not a valid command to alter a set of rate classes.
