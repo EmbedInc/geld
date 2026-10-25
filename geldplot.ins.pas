@@ -32,7 +32,8 @@ type
     end;
 
   dataset_t = record                   {control of what data is included in plot}
-    rateclass: geld_classset_t;        {which rate classes to include}
+    classes: geld_classset_t;          {which rate classes to include}
+    tstart, tend: sys_clock_t;         {start/end time of data to include}
     end;
 
   plotctrl_t = record                  {plot control parameters}
@@ -57,4 +58,7 @@ procedure cmline_read;                 {read the command line, update global sta
   val_param; extern;
 
 procedure geldplot_cmd;                {interactive command processor}
+  val_param; extern;
+
+procedure geldplot_init;               {init program state after data files read}
   val_param; extern;

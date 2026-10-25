@@ -31,13 +31,14 @@ begin
   cmline_read;                         {read command line, update global state}
 
   geld_lib_new (util_top_mem_context, geld_p); {start our use of the GELD library}
-
   geld_read_tree (geld_p^, datadir, stat); {read the tree of data files}
   sys_error_abort (stat, '', '', nil, 0);
-  geld_show_read_stats (geld_p^);      {show stats about reading data files}
-  plotctrl.dataset.rateclass :=        {init to include all rate classes in operations}
-    geld_classset_all (geld_p^);
+  geld_show_read_stats (geld_p^);      {show stats about the data}
 
+  geldplot_init;                       {init more program state after data files read}
+{
+*   Let the user specify actions interactively.
+}
   geldplot_cmd;                        {run the command processor}
 
   geld_lib_end (geld_p);               {close the GELD library}

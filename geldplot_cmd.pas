@@ -28,6 +28,7 @@ var
   parm: string_var8192_t;              {parameter parsed from command line}
   xtra: string_var32_t;                {extra parameter after end of command}
   pick: sys_int_machine_t;             {number of keyword picked from list}
+  class: sys_int_machine_t;            {scratch rate class ID}
   stat: sys_err_t;                     {completion status}
 
 label
@@ -151,6 +152,10 @@ begin
     'Quit the program');
   add_command ('STAT',                 {3}
     'Show statistics');
+  add_command ('CL ALL|NONE|[-]class ...', {4}
+    'Show/set rate classes, "-" removes');
+  add_command ('TR [time1 time2]',     {5}
+    'Show or set time range, YYYY/MM/DD.hh:mm:ss');
 {
 *   Initialize local state before command processing.
 }
@@ -208,6 +213,56 @@ loop_command:
   if not_eol then goto parm_extra;
 
   geld_show_read_stats (geld_p^);
+  end;
+{
+********************
+*
+*   CL cmd ... cmd
+*
+*   Update the list of rate classes to operate on.  The updated list is shown.
+}
+4: begin
+  string_substr (cmline, p, cmline.len, parm); {rest of command line into PARM}
+  geld_classset_f_str (                {process commands to update rate classes list}
+    geld_p^,                           {library use state}
+    plotctrl.dataset.classes,          {set of rate classes to update}
+    parm,                              {commands to update the classes set}
+    stat);
+  if sys_error(stat) then goto error;
+
+  write ('Enabled rate classes:');
+  for class := 1 to geld_p^.nrateclasses do begin {scan the rate classes}
+    if not geld_classset_in (          {this class not enabled ?}
+      geld_p^, class, plotctrl.dataset.classes) then next;
+    geld_rateclass_t_code (geld_p^, class, parm); {make rate class code}
+    write (' ', parm.str:parm.len);    {show it}
+    end;                               {back for next rate class}
+  writeln;
+  end;
+{
+********************
+*
+*   TR [time1 time2]
+}
+5: begin
+  string_token (cmline, p, parm, stat); {get TIME1}
+  if not string_eos(stat) then begin   {other than no command parameters ?}
+    if sys_error(stat) then goto error;
+    string_t_time1 (parm, true, plotctrl.dataset.tstart, stat); {interpret start time}
+    if sys_error(stat) then goto error;
+
+    string_token (cmline, p, parm, stat); {get TIME2}
+    if sys_error(stat) then goto error;
+    string_t_time1 (parm, true, plotctrl.dataset.tend, stat); {interpret end time}
+    if sys_error(stat) then goto error;
+
+    if not_eol then goto parm_extra;
+    end;
+
+  sys_clock_str1 (plotctrl.dataset.tstart, parm); {make starting time string}
+  write ('Time range ', parm.str:parm.len);
+  sys_clock_str1 (plotctrl.dataset.tend, parm); {make ending time string}
+  writeln (' - ', parm.str:parm.len);
   end;
 {
 ********************
