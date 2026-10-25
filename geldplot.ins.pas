@@ -62,3 +62,8 @@ procedure geldplot_cmd;                {interactive command processor}
 
 procedure geldplot_init;               {init program state after data files read}
   val_param; extern;
+
+procedure geldplot_plot_csv (          {plot data to CSV file}
+  in      fnam: univ string_var_arg_t; {name of CSV file to write}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;

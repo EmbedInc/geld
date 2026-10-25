@@ -26,9 +26,12 @@ var
   p: string_index_t;                   {parse index into CMLINE}
   cmd: string_var32_t;                 {command name from command line, upper case}
   parm: string_var8192_t;              {parameter parsed from command line}
+  fnam: string_treename_t;             {scratch file name}
   xtra: string_var32_t;                {extra parameter after end of command}
   pick: sys_int_machine_t;             {number of keyword picked from list}
   class: sys_int_machine_t;            {scratch rate class ID}
+  iounit: sys_sys_iounit_t;            {STDIO handles, unused}
+  procid: sys_sys_proc_id_t;           {ID of the new process}
   stat: sys_err_t;                     {completion status}
 
 label
@@ -138,6 +141,7 @@ begin
   cmline.max := size_char(cmline.str);
   cmd.max := size_char(cmd.str);
   parm.max := size_char(parm.str);
+  fnam.max := size_char(fnam.str);
   xtra.max := size_char(xtra.str);
 {
 *   Build the list of command names in CMDS.
@@ -156,6 +160,8 @@ begin
     'Show/set rate classes, "-" removes');
   add_command ('TR [time1 time2]',     {5}
     'Show or set time range, YYYY/MM/DD.hh:mm:ss');
+  add_command ('PLOT',                 {6}
+    'Plot data using current parameters');
 {
 *   Initialize local state before command processing.
 }
@@ -263,6 +269,45 @@ loop_command:
   write ('Time range ', parm.str:parm.len);
   sys_clock_str1 (plotctrl.dataset.tend, parm); {make ending time string}
   writeln (' - ', parm.str:parm.len);
+  end;
+{
+********************
+*
+*   PLOT
+}
+6: begin
+  case plotctrl.outty of               {what to plot to ?}
+outty_screen_k,
+outty_window_k: begin
+      writeln ('Plotting to the screen is not implemented yet.');
+      end;
+outty_file_k: begin
+      writeln ('Plotting to an image file is not implemented yet.');
+      end;
+outty_csv_k: begin
+      string_vstring (parm, '/temp/geld.csv'(0), -1); {make name of CSV file}
+      string_treename (parm, fnam);
+      geldplot_plot_csv (fnam, stat);  {write the data to the CSV file}
+      if sys_error(stat) then goto error;
+
+      string_vstring (parm, 'csvplot '(0), -1); {build command line to run}
+      string_append_token (parm, fnam);
+      string_appends (parm, ' -dev screen -miny 0'(0));
+      iounit := 0;
+      sys_run (                        {run the command}
+        parm,                          {command line to run}
+        sys_procio_none_k,             {no I/O connection to this process}
+        iounit, iounit, iounit,        {I/O unit IDs, not used}
+        procid,                        {returned ID of the new process}
+        stat);
+      if sys_error(stat) then return;
+      sys_proc_release (               {let process run on its own}
+        procid,                        {ID of the process to release}
+        stat);
+      end;
+otherwise
+    writeln ('Current plot output device not implemented yet.');
+    end;
   end;
 {
 ********************

@@ -16,7 +16,7 @@ begin
   geld_p := nil;                       {init to GELD library not open}
   datadir.max := size_char(datadir.str); {init name of tree containing GELD data}
   string_vstring (datadir, def_datadir, size_char(def_datadir));
-  plotctrl.outty := outty_screen_k;
+  plotctrl.outty := outty_csv_k;
   plotctrl.xaxis.cfg := xaxis_cfg_day_k;
   plotctrl.yaxis.cfg := yaxis_cfg_power_k;
   plotctrl.sizex := 1920;
