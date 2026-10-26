@@ -38,6 +38,7 @@ next_opt:
   string_cmline_token (opt, stat);     {get next command line option name}
   if string_eos(stat) then goto done_opts; {exhausted command line ?}
   sys_error_abort (stat, 'string', 'cmline_opt_err', nil, 0);
+  string_upcase (opt);                 {make upper case for keyword matching}
   string_tkpick80 (opt,                {pick command line option name from list}
     '-TREE',
     pick);                             {number of keyword picked from list}
