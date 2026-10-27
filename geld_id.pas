@@ -173,7 +173,7 @@ procedure geld_id_pos_start (          {init IDs position to start of list}
 
 begin
   pos.node_p := addr(geld.idtree);
-  pos.br := 0;
+  pos.br := -1;
   end;
 {
 ********************************************************************************
