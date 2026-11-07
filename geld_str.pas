@@ -14,6 +14,7 @@ define geld_str_hhmm;
 *   is not a valid date string.
 }
 function geld_str_mmddyear (           {set date/time from MM/DD/YEAR string}
+  in      geld: geld_t;                {library use state}
   in      str: univ string_var_arg_t;  {string to interpret}
   out     date: sys_date_t)            {date/time descriptor to set}
   :boolean;                            {success, not invalid input string}
@@ -75,8 +76,8 @@ begin
   date.minute := 0;
   date.second := 0;
   date.sec_frac := 0.0;
-  date.tzone_id := sys_tzone_east_usa_k;
-  date.daysave := sys_daysave_appl_k;
+  date.tzone_id := geld.tzone.tzone;   {time zone ID}
+  date.daysave := geld.tzone.daysave;  {daylight savings time strategy}
   sys_date_clean (date, date);         {sanitize all the fields of DATE}
 
   geld_str_mmddyear := true;           {indicate success}

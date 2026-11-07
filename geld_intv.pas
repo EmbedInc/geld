@@ -25,25 +25,29 @@ begin
   intv.next_p := nil;                  {not pointing to next entry in list}
   intv.tend := 0;                      {init interval ending time}
   intv.kwh := 0.0;                     {init measured energy during the interval}
+  intv.mloc := 0;                      {init local time minutes west of CUT}
   end;
 {
 ********************************************************************************
 *
-*   Subroutine GELD_INTV_SET (INTV, TEND, KWH)
+*   Subroutine GELD_INTV_SET (INTV, TEND, KWH, MLOC)
 *
 *   Set the data values of a measured energy interval.  INTV is the descriptor
-*   for the interval.  ST and EN are the start and end times of the measurement.
-*   KWH is the energy consumed during the time interval, in kWh.
+*   for the interval.  TEND is the and end time of the measurement.  KWH is the
+*   energy consumed during the time interval, in kWh.  MLOC is the minutes to
+*   west of CUT of the local time the measurement was taken in.
 }
 procedure geld_intv_set (              {set the data of a measured interval}
   in out  intv: geld_intv_t;           {measured interval to set values of}
   in      tend: sys_clock_t;           {interval end time}
-  in      kwh: real);                  {kWh energy measured during the interval}
+  in      kwh: real;                   {kWh energy measured during the interval}
+  in      mloc: sys_int_machine_t);    {minutes west of CUT for local time}
   val_param;
 
 begin
   intv.tend := sys_clock_to_clkmin32 (tend); {save interval end time}
   intv.kwh := kwh;                     {save energy consumed during the interval}
+  intv.mloc := mloc;                   {save local time minutes west of CUT}
   end;
 {
 ********************************************************************************

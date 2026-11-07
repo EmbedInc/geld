@@ -352,7 +352,7 @@ loop_command:
   while true do begin                  {back here each new reading to show}
     geld_intv_next (posr, intv_p);     {get pointer to next interval}
     if intv_p = nil then exit;         {hit end of list ?}
-    geld_show_intv (intv_p^, meter_p^); {show data for this reading}
+    geld_show_intv (geld_p^, intv_p^, meter_p^); {show data for this reading}
     ii := ii + 1;                      {count one more reading shown}
     if ii >= nlist then exit;          {hit max readings to show ?}
     end;                               {back for next reading}

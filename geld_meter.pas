@@ -108,8 +108,23 @@ var
   intv_p: geld_intv_p_t;               {to saved description of measured interval}
   ent_p: geld_intv_p_t;                {to existing measured intervals list entry}
   kwh: real;                           {kWh consumed this reading interval}
+  time: sys_clock_t;                   {scratch absolute time}
+  date: sys_date_t;                    {expanded date/time descriptor}
+  hours_west: real;                    {local measurement time hours west of CUT}
 
 begin
+  time := sys_clock_sub (              {make measurement interval start time}
+    tend,                              {starting time}
+    sys_clock_from_fp_rel (meter.period)); {length of measurement interval}
+
+  sys_clock_to_date (                  {make expanded date/time from start time}
+    time,                              {absolute time to convert}
+    geld.tzone.tzone,                  {ID of time zone to convert into}
+    geld.tzone.hours_west,             {time zone base hours west of CUT}
+    geld.tzone.daysave,                {daylight savings time strategy}
+    date);                             {returned expanded date/time descriptor}
+
+  hours_west := sys_date_hours_west (date); {actual hours west of measurement start time}
 {
 *   Create and initialize a new measured interval descriptor.
 }
@@ -121,7 +136,8 @@ begin
   geld_intv_set (                      {set the interval data}
     intv_p^,                           {interval to set data of}
     tend,                              {interval ending time}
-    kwh);                              {consumed energy in kWh}
+    kwh,                               {consumed energy in kWh}
+    round(hours_west * 60.0));         {measurement time zone minutes west of CUT}
 
   meter.nintv := meter.nintv + 1;      {count one more measured interval this meter}
   geld.rateclass_p^[meter.class].nintv := {count one more interval this rate class}

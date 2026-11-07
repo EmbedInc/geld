@@ -6,7 +6,7 @@ define geld_avepower;
 *
 *   Subroutine GELD_AVEPOWER (GELD, POWER, NPOWER, SLSEC, ST, EN, CLASSES)
 *
-*   Compute the average power consumed over a time interval into a fixed set of
+*   Compute the average power consumed over a time window into a fixed set of
 *   time slices.  Power is averaged per meter, but summed across meters.
 *
 *   POWER is the array of returned averages for each time slice.  NPOWER is the
@@ -43,6 +43,7 @@ var
   arsec: sys_int_conv32_t;             {seconds of all slices, returned array}
   winstart, winend: sys_clkmin32_t;    {window start/end time in absolute minutes}
   winsec: sys_int_conv32_t;            {window size in seconds}
+  minwest: sys_int_machine_t;          {local time min west of CUT at window start}
   sz: sys_int_adr_t;                   {memory size}
   ave_p: geld_power_p_t;               {to accumulated values from curr meter}
   nave_p: ^nave_t;                     {to number of seconds accumulated each slice}
@@ -62,13 +63,22 @@ var
 begin
   if npower <= 0 then return;          {no place to return any data ?}
   if slsec <= 0 then return;           {invalid slice length ?}
-
+{
+*   Compute starting and ending window times projected to the local time zone.
+}
   plast := npower - 1;                 {make last valid 0-N POWER array index}
   arsec := npower * slsec;             {seconds for whole array (all slices)}
   winstart := sys_clock_to_clkmin32(st); {make window start time in abs minutes}
   winend := sys_clock_to_clkmin32(en); {make window end time in abs minutes}
   winsec := (winend - winstart) * 60;  {make window length in seconds}
 
+  minwest := round( sys_clock_hours_west ( {local time win start min west of CUT}
+    st, geld.tzone.tzone, geld.tzone.hours_west, geld.tzone.daysave)
+    * 60.0);
+{
+*   Create the AVE and NAVE arrays.  These will be used to find the averages of
+*   each slice per meter.
+}
   sz := npower * sizeof(ave_p^[0]);    {size of whole AVE array}
   sys_mem_alloc (sz, ave_p);           {create the AVE array}
   util_mem_grab_err_bomb (ave_p, sz);
@@ -76,12 +86,14 @@ begin
   sz := npower * sizeof(nave_p^[0]);   {size of whole NAVE array}
   sys_mem_alloc (sz, nave_p);          {create the NAVE array}
   util_mem_grab_err_bomb (nave_p, sz);
-
+{
+*   Scan all meters and all measured intervals for those meters.
+}
   for ind := 0 to plast do begin       {once for each slice}
     power[ind] := 0.0;                 {init accumulated value}
     end;
 
-  geld_id_pos_start (geld, posid);     {to before start of IDs list}
+  geld_id_pos_start (geld, posid);     {to before start of meter IDs list}
   while true do begin                  {back here each new meter ID in list}
     geld_id_next (geld, posid, meter_p); {get pointer to next meter in list}
     if meter_p = nil then exit;        {hit end of meter IDs list ?}
@@ -89,13 +101,15 @@ begin
       then next;
     for ind := 0 to plast do begin     {init values from this meter}
       ave_p^[ind] := 0.0;              {init accumulated values}
-      nave_p^[ind] := 0;               {init number of accumulated values}
+      nave_p^[ind] := 0;               {init number seconds data accumulated for}
       end;
-    geld_intv_pos_time (meter_p^, st, posrd); {to before first reading in our window}
+    geld_intv_pos_time (meter_p^, st, posrd); {to before first reading in time window}
     while true do begin                {back here each new reading interval this meter}
       geld_intv_next (posrd, intv_p);  {to next reading for this meter}
       if intv_p = nil then exit;       {hit end of readings this meter ?}
       intvminend := intv_p^.tend;      {abs minutes end time of this reading}
+      intvminend :=                    {adjust for daylight savings time}
+        intvminend + minwest - intv_p^.mloc;
       if intvminend <= winstart then next; {whole reading is before start of window ?}
       secen := (intvminend - winstart) * 60; {interval end in window seconds}
       secst := secen - meter_p^.period; {interval start in window seconds}
@@ -131,7 +145,9 @@ begin
         (ave_p^[ind] / nave_p^[ind]);
       end;                             {back for next data slice}
     end;                               {back for next meter in IDs list}
-
+{
+*   Clean up and leave.
+}
   sys_mem_dealloc (ave_p);             {release accumulated values array}
   sys_mem_dealloc (nave_p);            {release number of accumulated values array}
   end;

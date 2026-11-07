@@ -24,6 +24,7 @@ procedure geld_meter_init (            {initialize meter data descriptor}
   val_param; extern;
 
 function geld_str_mmddyear (           {set date/time from MM/DD/YEAR string}
+  in      geld: geld_t;                {library use state}
   in      str: univ string_var_arg_t;  {string to interpret}
   out     date: sys_date_t)            {date/time descriptor to set}
   :boolean;                            {success, not invalid input string}

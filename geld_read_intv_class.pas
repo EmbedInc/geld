@@ -80,7 +80,7 @@ begin
       sys_stat_set (geld_subsys_k, geld_stat_errdate_k, stat);
       goto err_atline;
       end;
-    if not geld_str_mmddyear (tk, date) then begin {init date/time with date}
+    if not geld_str_mmddyear (geld, tk, date) then begin {init date/time with date}
       sys_stat_set (geld_subsys_k, geld_stat_baddate_k, stat);
       sys_stat_parm_vstr (tk, stat);
       goto err_atline;

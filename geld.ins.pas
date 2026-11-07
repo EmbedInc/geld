@@ -60,6 +60,7 @@ type
     next_p: geld_intv_p_t;             {to next record this meter}
     tend: sys_clkmin32_t;              {end time of this interval}
     kwh: real;                         {total kWh use during interval}
+    mloc: sys_int_machine_t;           {local time minutes west of CUT}
     end;
 
   geld_meter_p_t = ^geld_meter_t;
@@ -106,6 +107,12 @@ geld_idnode_last_k: (                  {lowest tree node, points to leaves}
   geld_power_t =                       {average power per slice, size variable}
     array[0..128] of double;
 
+  geld_tzone_t = record                {measurements time zone info}
+    tzone: sys_tzone_k_t;              {time zone ID}
+    hours_west: real;                  {hours west of CUT, only needed for OTHER time zone}
+    daysave: sys_daysave_k_t;          {daylight savings time strategy}
+    end;
+
   geld_p_t = ^geld_t;
   geld_t = record                      {state for this use of the GELD library}
     mem_p: util_mem_context_p_t;       {to mem context for this lib use}
@@ -117,6 +124,7 @@ geld_idnode_last_k: (                  {lowest tree node, points to leaves}
     kwh: double;                       {total kWh measured}
     nrateclasses: sys_int_machine_t;   {number of rate classes}
     rateclass_p: geld_rateclass_ar_p_t; {to rate classes, index 1 - NRATECLASSES}
+    tzone: geld_tzone_t;               {info on time zone of measurements}
     end;
 {
 *   Subroutines and functions.
@@ -230,7 +238,8 @@ procedure geld_intv_pos_start (        {init position to start of intervals list
 procedure geld_intv_set (              {set the data of a measured interval}
   in out  intv: geld_intv_t;           {measured interval to set values of}
   in      tend: sys_clock_t;           {interval end time}
-  in      kwh: real);                  {kWh energy measured during the interval}
+  in      kwh: real;                   {kWh energy measured during the interval}
+  in      mloc: sys_int_machine_t);    {minutes west of CUT for local time}
   val_param; extern;
 
 procedure geld_lib_end (               {end a use of the GELD library, dealloc resources}
@@ -317,6 +326,7 @@ procedure geld_show_meter (            {show basic info about a meter}
   val_param; extern;
 
 procedure geld_show_intv (             {show measured interval}
+  in      geld: geld_t;                {library use state}
   in      intv: geld_intv_t;           {the interval to show}
   in      meter: geld_meter_t);        {meter that measured the interval}
   val_param; extern;

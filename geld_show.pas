@@ -48,11 +48,12 @@ begin
 {
 ********************************************************************************
 *
-*   Subroutine GELD_SHOW_INTV (INTV, METER)
+*   Subroutine GELD_SHOW_INTV (GELD, INTV, METER)
 *
 *   Show the data for one measured interval.
 }
 procedure geld_show_intv (             {show measured interval}
+  in      geld: geld_t;                {library use state}
   in      intv: geld_intv_t;           {the interval to show}
   in      meter: geld_meter_t);        {meter that measured the interval}
   val_param;
@@ -80,9 +81,7 @@ begin
 
   sys_clock_to_date (                  {make expanded date/time from start time}
     st,                                {time value to convert}
-    sys_tzone_east_usa_k,              {time zone to convert into}
-    0.0,                               {time zone hours west, not used}
-    sys_daysave_appl_k,                {apply daylight savings time}
+    geld.tzone.tzone, geld.tzone.hours_west, geld.tzone.daysave, {time zone info}
     date);                             {returned expanded date/time}
 {
 *   Show the start time as YYYY/MM/DD.HH:MM.

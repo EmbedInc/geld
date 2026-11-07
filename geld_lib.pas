@@ -42,6 +42,9 @@ begin
   geld_p^.kwh := 0.0;                  {init total kWh measured}
   geld_p^.nrateclasses := 0;           {init to no rate classes defined}
   geld_p^.rateclass_p := nil;
+  geld_p^.tzone.tzone := sys_tzone_east_usa_k; {init measurement time zone ID}
+  geld_p^.tzone.hours_west := 0.0;     {not used when time zone known}
+  geld_p^.tzone.daysave := sys_daysave_appl_k; {init to apply daylight savings time}
   end;
 {
 ********************************************************************************
