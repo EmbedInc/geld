@@ -75,12 +75,14 @@ otherwise
 }
   csv_out_open (fnam, csv, stat);      {open the CSV output file}
   if sys_error(stat) then goto leave;
+  csv.flags :=                         {min required output characters, no padding}
+    csv.flags + [csv_outflag_minchar_k];
   {
   *   Write header line.
   }
   csv_out_vstr (csv, labx, stat);      {write header line}
   if sys_error(stat) then goto abort1;
-  csv_out_str (csv, 'MW'(0), stat);
+  csv_out_str (csv, 'kW'(0), stat);
   if sys_error(stat) then goto abort1;
   csv_out_line (csv, stat);
   if sys_error(stat) then goto abort1;
