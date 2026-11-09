@@ -8,6 +8,7 @@
 
 const
   def_datadir = '~/geld/data/2025';    {default directory holding tree of GELD data}
+  def_ifnam = '/temp/geld.jpg';        {default image output file name}
 
 type
   xaxis_cfg_k_t = (                    {types of X axis configurations}
@@ -65,5 +66,9 @@ procedure geldplot_init;               {init program state after data files read
 
 procedure geldplot_plot_csv (          {plot data to CSV file}
   in      fnam: univ string_var_arg_t; {name of CSV file to write}
+  out     stat: sys_err_t);            {completion status}
+  val_param; extern;
+
+procedure geldplot_plot_rend (         {plot data using RENDlib}
   out     stat: sys_err_t);            {completion status}
   val_param; extern;

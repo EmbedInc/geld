@@ -19,12 +19,12 @@ begin
   plotctrl.outty := outty_csv_k;
   plotctrl.xaxis.cfg := xaxis_cfg_day_k;
   plotctrl.yaxis.cfg := yaxis_cfg_power_k;
-  plotctrl.sizex := 1920;
-  plotctrl.sizex := 1080;
-  plotctrl.posx := 0;
+  plotctrl.sizex := 1280;
+  plotctrl.sizey := 1080;
+  plotctrl.posx := 640;
   plotctrl.posy := 0;
   plotctrl.fnam.max := size_char(plotctrl.fnam.str);
-  plotctrl.fnam.len := 0;
+  string_vstring (plotctrl.fnam, def_ifnam, size_char(def_ifnam));
   plotctrl.title.max := size_char(plotctrl.title.str);
   plotctrl.title.len := 0;
 

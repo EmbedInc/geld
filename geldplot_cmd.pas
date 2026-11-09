@@ -32,6 +32,7 @@ var
   class: sys_int_machine_t;            {scratch rate class ID}
   iounit: sys_sys_iounit_t;            {STDIO handles, unused}
   procid: sys_sys_proc_id_t;           {ID of the new process}
+  tk: string_var32_t;                  {scratch token}
   stat: sys_err_t;                     {completion status}
 
 label
@@ -143,6 +144,7 @@ begin
   parm.max := size_char(parm.str);
   fnam.max := size_char(fnam.str);
   xtra.max := size_char(xtra.str);
+  tk.max := size_char(tk.str);
 {
 *   Build the list of command names in CMDS.
 }
@@ -160,7 +162,13 @@ begin
     'Show/set rate classes, "-" removes');
   add_command ('TR [time1 time2]',     {5}
     'Show or set time range, YYYY/MM/DD.hh:mm:ss');
-  add_command ('PLOT',                 {6}
+  add_command ('TO [WIN|SCREEN|FILE|CSV]', {6}
+    'Show or set what plot output device');
+  add_command ('TITLE title',          {7}
+    'Set plot title');
+  add_command ('X [DAY|YEAR]',         {8}
+    'Show or set X axis configuration');
+  add_command ('PLOT',                 {9}
     'Plot data using current parameters');
 {
 *   Initialize local state before command processing.
@@ -273,16 +281,128 @@ loop_command:
 {
 ********************
 *
-*   PLOT
+*   TO [WIN|SCREEN|FILE|CSV]
+*
+*   Show or set the output device for subsequent plots.
 }
 6: begin
+  string_token (cmline, p, parm, stat); {try to get device name}
+  if not string_eos(stat) then begin   {other than no command parameter ?}
+    if sys_error(stat) then goto error;
+    if not_eol then goto parm_extra;
+    string_upcase (parm);              {make upper case for keyword matching}
+    string_tkpick80 (parm,             {pick keyword from list}
+      'WIN SCREEN FILE CSV',
+      pick);
+    case pick of                       {which keyword is it ?}
+1:    plotctrl.outty := outty_window_k;
+2:    plotctrl.outty := outty_screen_k;
+3:    plotctrl.outty := outty_file_k;
+4:    plotctrl.outty := outty_csv_k;
+otherwise
+      goto parm_bad;
+      end;
+    end;
+
+  write ('Plotting to ');
+  case plotctrl.outty of
+outty_screen_k: write ('full screen');
+outty_window_k: write ('window');
+outty_file_k: write ('image file');
+outty_csv_k: write ('CSV file');
+otherwise
+    write ('destination with ID ', ord(plotctrl.outty));
+    end;
+  writeln ('.');
+  end;
+{
+********************
+*
+*   TITLE title
+*
+*   Set title for subsequent plots.
+}
+7: begin
+  while (p <= cmline.len) and then (cmline.str[p] = ' ') do begin {skip leading blanks}
+    p := p + 1;
+    end;
+  string_substr (cmline, p, cmline.len, plotctrl.title); {save remaining cmd line as title}
+
+  writeln ('Plot title: "', plotctrl.title.str:plotctrl.title.len, '"');
+  end;
+{
+********************
+*
+*   X [DAY|YEAR]
+*
+*   Show or set plot X axis configuration.
+}
+8: begin
+  string_token (cmline, p, parm, stat); {try to get keyword}
+  if not string_eos(stat) then begin   {other than no command parameter ?}
+    if sys_error(stat) then goto error;
+    if not_eol then goto parm_extra;
+    string_upcase (parm);              {make upper case for keyword matching}
+    string_tkpick80 (parm,             {pick keyword from list}
+      'DAY YEAR',
+      pick);
+    case pick of                       {which keyword is it ?}
+1:    plotctrl.xaxis.cfg := xaxis_cfg_day_k;
+2:    plotctrl.xaxis.cfg := xaxis_cfg_year_k;
+otherwise
+      goto parm_bad;
+      end;
+    end;
+
+  write ('X axis is ');
+  case plotctrl.xaxis.cfg of
+xaxis_cfg_day_k: write ('hours within day');
+xaxis_cfg_year_k: write ('days within year');
+otherwise
+    write ('configured with ID ', ord(plotctrl.outty));
+    end;
+  writeln ('.');
+  end;
+{
+********************
+*
+*   PLOT
+}
+9: begin
   case plotctrl.outty of               {what to plot to ?}
 outty_screen_k,
 outty_window_k: begin
-      writeln ('Plotting to the screen is not implemented yet.');
+      geldplot_plot_rend (stat);       {draw plot live using RENDlib}
+      if sys_error(stat) then goto error;
       end;
 outty_file_k: begin
-      writeln ('Plotting to an image file is not implemented yet.');
+      geldplot_plot_rend (stat);       {draw plot to image file using RENDlib}
+      if sys_error(stat) then goto error;
+
+      string_vstring (parm, 'image_disp '(0), -1); {build command line to run}
+      string_append_token (parm, plotctrl.fnam);
+      string_appends (parm, ' -dev "*window* :. -root -pos 0 0 -size '(0));
+      string_f_int (tk, plotctrl.sizex);
+      string_append (parm, tk);
+      string_append1 (parm, ' ');
+      string_f_int (tk, plotctrl.sizey);
+      string_append (parm, tk);
+      string_append1 (parm, '"');
+
+      writeln ('Running: ', parm.str:parm.len); {TEMP DEBUG}
+
+      iounit := 0;
+      sys_run (                        {run the command}
+        parm,                          {command line to run}
+        sys_procio_none_k,             {no I/O connection to this process}
+        iounit, iounit, iounit,        {I/O unit IDs, not used}
+        procid,                        {returned ID of the new process}
+        stat);
+      if sys_error(stat) then return;
+      sys_proc_release (               {let process run on its own}
+        procid,                        {ID of the process to release}
+        stat);
+      if sys_error(stat) then return;
       end;
 outty_csv_k: begin
       string_vstring (parm, '/temp/geld.csv'(0), -1); {make name of CSV file}
@@ -304,6 +424,7 @@ outty_csv_k: begin
       sys_proc_release (               {let process run on its own}
         procid,                        {ID of the process to release}
         stat);
+      if sys_error(stat) then return;
       end;
 otherwise
     writeln ('Current plot output device not implemented yet.');
