@@ -22,6 +22,8 @@ var
   slx: real;                           {X axis increment per slice}
   sz: sys_int_adr_t;                   {memory size}
   live: boolean;                       {display is live, interactions with user}
+  aa: boolean;                         {doing anti-aliasing}
+  dx, dy: real;                        {scratch width/height}
 
   rendopen: boolean;                   {RENDlib is open}
   rendev: rend_dev_id_t;               {RENDlib drawing device ID}
@@ -30,9 +32,14 @@ var
   vparm: rend_vect_parms_t;            {our base vector control parameters}
   bitmap: rend_bitmap_handle_t;        {handle to bitmap for main drawing}
   bitmap_alloc: boolean;               {pixels are allocated to the bitmap}
-  sizex, sizey: sys_int_machine_t;     {drawing area size, pixels}
+  bitmapf: rend_bitmap_handle_t;       {handle to bitmap to write image file from}
+  xbord, ybord: sys_int_machine_t;     {extra pixels border for anti-aliasing}
+  xextra, yextra: sys_int_machine_t;   {extra pixels each dim due to borders}
+  sizex, sizey: sys_int_machine_t;     {drawing device size, pixels}
   aspect: real;                        {DX/DY aspect ratio of drawing device}
-  xrit, ytop: real;                    {right/top 2D coor, 0,0 in center}
+  asp2d: real;                         {aspect ratio of 2D drawing area}
+  xb, yb, ofs: vect_2d_t;              {2D transform}
+  xrit, ytop: real;                    {right/top 2D coor, 0,0 lower left}
   ev: rend_event_t;                    {one interactive event}
 
   str: string_var132_t;                {scratch string}
@@ -82,6 +89,11 @@ otherwise
   rend_start;                          {start and initialize RENDlib}
   rendopen := true;                    {indicate RENDlib is now open}
   live := false;                       {init to display is not live}
+  aa := false;                         {init to not anti-alias}
+  xbord := 0;                          {init to no border pixels required}
+  ybord := 0;
+  xextra := xbord * 2;                 {init extra pixels each dim due to borders}
+  yextra := ybord * 2;
 
   str.len := 0;                        {init RENDlib device string}
   case plotctrl.outty of               {what device to draw plot on ?}
@@ -105,18 +117,26 @@ outty_window_k: begin                  {to window on the screen}
       live := true;                    {display is live, user may interact}
       end;
 outty_file_k: begin                    {to image file}
+      xbord := aafactor;               {set number of extra border pixels required}
+      ybord := aafactor;
+      xextra := xbord * 2;             {extra X pixels required for border}
+      yextra := ybord * 2;             {extra Y pixels required for border}
+      sizex := (plotctrl.sizex * aafactor) + xextra; {total required bitmap size}
+      sizey := (plotctrl.sizey * aafactor) + yextra;
+
       string_appends (str, '*sw* size '(0));
-      string_f_int (tk, plotctrl.sizex);
+      string_f_int (tk, sizex);
       string_append (str, tk);
       string_append1 (str, ' ');
-      string_f_int (tk, plotctrl.sizey);
+      string_f_int (tk, sizey);
       string_append (str, tk);
       string_appends (str, ' aspect '(0));
-      string_f_int (tk, plotctrl.sizex);
+      string_f_int (tk, sizex);
       string_append (str, tk);
       string_append1 (str, ' ');
-      string_f_int (tk, plotctrl.sizey);
+      string_f_int (tk, sizey);
       string_append (str, tk);
+      aa := true;                      {result should be anti-aliased}
       end;
 otherwise
     writeln ('Unexpected PLOTCTRL.OUTTY of ', ord(plotctrl.outty), ' in GELDPLOT_PLOT_REND.');
@@ -145,9 +165,21 @@ otherwise
   rend_set.poly_parms^ (pparm);        {set our new "base" polygon control parms}
 
   rend_get.vect_parms^ (vparm);        {get default vector control parameters}
-  vparm.width := 2.0;
-  vparm.poly_level := rend_space_none_k;
-  vparm.subpixel := false;
+  if aa
+    then begin                         {drawing to high res bitmap for anti-aliasing}
+      vparm.width := aafactor * 2;     {vector width in pixels}
+      vparm.poly_level := rend_space_2dimcl_k; {space vector width defined in}
+      vparm.start_style.style := rend_end_style_circ_k; {circular vector ends}
+      vparm.start_style.nsides := 16;  {segments per circle}
+      vparm.end_style.style := rend_end_style_circ_k; {circular vector ends}
+      vparm.end_style.nsides := 16;    {segments per circle}
+      vparm.subpixel := true;          {endpoint locations can be sub-pixel}
+      end
+    else begin                         {drawing to final pixels directly}
+      vparm.poly_level := rend_space_none_k;
+      vparm.subpixel := false;
+      end
+    ;
   rend_set.vect_parms^ (vparm);        {set our new "base" vector control parameters}
 
   rend_set.alloc_bitmap_handle^ (      {create handle for our software bitmap}
@@ -184,18 +216,38 @@ otherwise
 }
 resize:
   rend_set.enter_rend^;                {into graphics mode}
-
+  {
+  *   Get drawing device size and aspect ratio.  Set up 2D transform for 0,0 in
+  *   the lower left corner and 1,1 against the right or top edge, depending on
+  *   aspect ratio.
+  }
   rend_get.image_size^ (sizex, sizey, aspect);
+  asp2d := aspect;                     {init drawing area aspect ratio}
+  asp2d := asp2d * (sizex - xextra) / sizex; {adjust for lft/rit borders}
+  asp2d := asp2d * sizey / (sizey - yextra); {adjust for top/bot borders}
+
   if aspect >= 1.0
     then begin                         {wider than tall}
-      xrit := aspect;
+      dx := aspect;                    {raw device 2D size}
+      dy := 1.0;
+      xrit := asp2d;                   {drawing area 2D size}
       ytop := 1.0;
       end
     else begin                         {taller than wide}
-      xrit := 1.0;
-      ytop := 1.0 / aspect;
+      dx := 1.0;                       {raw device 2D size}
+      dy := 1.0 / aspect;
+      xrit := 1.0;                     {drawing area 2D size}
+      ytop := 1.0 / asp2d;
       end
     ;
+  xb.x := 2.0 * (sizex - xextra) / sizex;
+  xb.y := 0.0;
+  yb.x := 0.0;
+  yb.y := 2.0 * (sizey - yextra) / sizey;
+  ofs.x := -dx * (sizex - xextra) / sizex;
+  ofs.y := -dy * (sizey - yextra) / sizey;
+  rend_set.xform_2d^ (xb, yb, ofs);    {set new transform}
+
   if bitmap_alloc then begin           {bitmap has pixels allocated ?}
     rend_set.dealloc_bitmap^ (bitmap); {deallocate the pixels}
     bitmap_alloc := false;             {indicate pixels not allocated}
@@ -220,11 +272,11 @@ redraw:
   rend_set.rgb^ (0.15, 0.15, 0.60);
   rend_prim.clear^;
   rend_set.rgb^ (1.0, 1.0, 1.0);
-  rend_set.cpnt_2d^ (xrit, 0.0);
-  rend_prim.vect_2d^ (0.0, ytop);
-  rend_prim.vect_2d^ (-xrit, 0.0);
-  rend_prim.vect_2d^ (00, -ytop);
-  rend_prim.vect_2d^ (xrit, 0.0);
+  rend_set.cpnt_2d^ (xrit, ytop/2.0);
+  rend_prim.vect_2d^ (xrit/2.0, ytop);
+  rend_prim.vect_2d^ (0.0, ytop/2.0);
+  rend_prim.vect_2d^ (xrit/2.0, 0.0);
+  rend_prim.vect_2d^ (xrit, ytop/2.0);
 
   rend_set.exit_rend^;                 {leave graphics mode}
 {
@@ -235,9 +287,6 @@ redraw:
 
 next_event:
   rend_event_get (ev);                 {get next live event}
-(*
-  rend_event_show (ev);                {TEMP DEBUG}
-*)
   case ev.ev_type of                   {what kind of event is this ?}
 
 rend_ev_close_k,
@@ -271,13 +320,47 @@ done_drawing:
 *   The display was not live.  Write the resulting bitmap to an image file.
 }
   rend_set.enter_rend^;                {into graphics mode}
+
+  rend_set.alloc_bitmap_handle^ (      {create handle to image file bitmap}
+    rend_scope_dev_k,                  {deallocate handle when device closed}
+    bitmapf);                          {returned bitmap handle}
+  rend_set.alloc_bitmap^ (             {allocate memory for the image file bitmap}
+    bitmapf,                           {bitmap handle}
+    plotctrl.sizex, plotctrl.sizey,    {bitmap size, pixels}
+    3,                                 {address units per pixel}
+    rend_scope_dev_k);                 {deallocate bitmap when device closed}
+
+  rend_set.iterp_bitmap^ (rend_iterp_red_k, bitmapf, 0); {set new bitmap as destination}
+  rend_set.iterp_bitmap^ (rend_iterp_grn_k, bitmapf, 1);
+  rend_set.iterp_bitmap^ (rend_iterp_blu_k, bitmapf, 2);
+
+  rend_set.iterp_src_bitmap^ (rend_iterp_red_k, bitmap, 0); {set old bitmap as source}
+  rend_set.iterp_src_bitmap^ (rend_iterp_grn_k, bitmap, 1);
+  rend_set.iterp_src_bitmap^ (rend_iterp_blu_k, bitmap, 2);
+
+  rend_set.image_size^ (               {config draw device to new bitmap size}
+    plotctrl.sizex, plotctrl.sizey,    {X and Y bitmap size, pixels}
+    plotctrl.sizex / plotctrl.sizey);  {DX/DY aspect ratio of whole bitmap}
+
+  rend_set.aa_scale^ (1.0 / aafactor, 1.0 / aafactor); {anti-aliasing scale factor}
+  rend_set.iterp_aa^ (rend_iterp_red_k, true); {enable interpolants for anti-aliasing}
+  rend_set.iterp_aa^ (rend_iterp_grn_k, true);
+  rend_set.iterp_aa^ (rend_iterp_blu_k, true);
+
+  rend_set.cpnt_2dimi^(0, 0);          {to top left corner of output bitmap}
+
+  rend_prim.anti_alias^ (              {anti-alias drawing bitmap to img file bitmap}
+    plotctrl.sizex, plotctrl.sizey,    {destination rectangle size}
+    xbord, ybord);                     {top left source pixel}
+
+  rend_set.exit_rend^;                 {out of graphics mode}
+
   rend_set.image_write^ (              {write bitmap to image file}
     plotctrl.fnam,                     {image file name}
     0, 0,                              {top left bitmap pixel to write}
     plotctrl.sizex, plotctrl.sizey,    {size of bitmap area to write}
     stat);
   if sys_error(stat) then goto abort1;
-  rend_set.exit_rend^;                 {leave graphics mode}
 
 leave:                                 {common exit point, STAT set}
   if dat_p <> nil then begin           {data array still allocated ?}

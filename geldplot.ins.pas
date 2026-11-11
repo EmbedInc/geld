@@ -9,6 +9,7 @@
 const
   def_datadir = '~/geld/data/2025';    {default directory holding tree of GELD data}
   def_ifnam = '/temp/geld.jpg';        {default image output file name}
+  aafactor = 4;                        {anti-aliasing factor for image file output}
 
 type
   xaxis_cfg_k_t = (                    {types of X axis configurations}

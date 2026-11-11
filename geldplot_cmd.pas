@@ -33,6 +33,7 @@ var
   iounit: sys_sys_iounit_t;            {STDIO handles, unused}
   procid: sys_sys_proc_id_t;           {ID of the new process}
   tk: string_var32_t;                  {scratch token}
+  i1, i2: sys_int_machine_t;           {integer command parameters}
   stat: sys_err_t;                     {completion status}
 
 label
@@ -168,7 +169,9 @@ begin
     'Set plot title');
   add_command ('X [DAY|YEAR]',         {8}
     'Show or set X axis configuration');
-  add_command ('PLOT',                 {9}
+  add_command ('SZ [dx dy]',           {9}
+    'Show or set drawing area size in pixels');
+  add_command ('PLOT',                 {10}
     'Plot data using current parameters');
 {
 *   Initialize local state before command processing.
@@ -366,9 +369,37 @@ otherwise
 {
 ********************
 *
-*   PLOT
+*   SZ [dx dy]
+*
+*   Set or show the plot drawing device size in pixels.
 }
 9: begin
+  string_token (cmline, p, parm, stat); {get DX token}
+  if not string_eos(stat) then begin   {other than no command parameters ?}
+    if sys_error(stat) then goto error;
+    string_t_int (parm, i1, stat);     {make X size into I1}
+    if sys_error(stat) then goto error;
+
+    string_token (cmline, p, parm, stat); {get DY token}
+    if sys_error(stat) then goto error;
+    string_t_int (parm, i2, stat);     {make Y size into I2}
+    if sys_error(stat) then goto error;
+
+    if not_eol then goto parm_extra;
+
+    plotctrl.sizex := i1;              {save new drawing area size}
+    plotctrl.sizey := i2;
+    end;
+
+  writeln ('Drawing area size in pixels is ',
+    plotctrl.sizex, ',', plotctrl.sizey, '.');
+  end;
+{
+********************
+*
+*   PLOT
+}
+10: begin
   case plotctrl.outty of               {what to plot to ?}
 outty_screen_k,
 outty_window_k: begin
