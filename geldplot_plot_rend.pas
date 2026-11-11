@@ -174,7 +174,7 @@ otherwise
     rend_set.event_req_key_on^ (       {request ENTER key events}
       rend_get.key_sp^ (rend_key_sp_enter_k, 0), {ID for ENTER key}
       0);                              {user ID for this key, unused}
-    rend_event_req_stdin_line (true);  {get user ENTER events}
+    rend_event_req_stdin_line (true);  {get STDIN events}
     end;
 
   rend_set.exit_rend^;                 {leave graphics mode}
@@ -235,6 +235,9 @@ redraw:
 
 next_event:
   rend_event_get (ev);                 {get next live event}
+(*
+  rend_event_show (ev);                {TEMP DEBUG}
+*)
   case ev.ev_type of                   {what kind of event is this ?}
 
 rend_ev_close_k,

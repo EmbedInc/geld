@@ -389,7 +389,9 @@ outty_file_k: begin
       string_append (parm, tk);
       string_append1 (parm, '"');
 
+      (*
       writeln ('Running: ', parm.str:parm.len); {TEMP DEBUG}
+      *)
 
       iounit := 0;
       sys_run (                        {run the command}
