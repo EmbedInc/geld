@@ -91,6 +91,11 @@ procedure geldplot_data_make (         {compute data to plot under current confi
   out     data_p: data_p_t);           {returned pointer to plottable data}
   val_param; extern;
 
+procedure geldplot_draw (              {draw plot to RENDlib, drawing only}
+  in      data: data_t;                {plot data to draw}
+  in      xrit, ytop: real);           {top right draw area coor, 0,0 bottom left}
+  val_param; extern;
+
 procedure geldplot_init;               {init program state after data files read}
   val_param; extern;
 

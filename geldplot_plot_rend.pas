@@ -233,20 +233,7 @@ resize:
 *   parts need to be redrawn due to user or system actions.
 }
 redraw:
-  rend_set.enter_rend^;                {into graphics mode}
-
-  {***** TEMP DEBUG *****
-  }
-  rend_set.rgb^ (0.15, 0.15, 0.60);
-  rend_prim.clear^;
-  rend_set.rgb^ (1.0, 1.0, 1.0);
-  rend_set.cpnt_2d^ (xrit, ytop/2.0);
-  rend_prim.vect_2d^ (xrit/2.0, ytop);
-  rend_prim.vect_2d^ (0.0, ytop/2.0);
-  rend_prim.vect_2d^ (xrit/2.0, 0.0);
-  rend_prim.vect_2d^ (xrit, ytop/2.0);
-
-  rend_set.exit_rend^;                 {leave graphics mode}
+  geldplot_draw (data_p^, xrit, ytop); {draw the plot}
 {
 *   If the drawing is live, wait for the user to end the display.  Regions may
 *   also need re-drawing, and the drawing device size can change.
