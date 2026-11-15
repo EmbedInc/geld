@@ -16,11 +16,7 @@ procedure geldplot_plot_rend (         {plot data using RENDlib}
   val_param;
 
 var
-  dat_p: geld_power_p_t;               {to data values}
-  ndat: sys_int_machine_t;             {number of data values at DAT_P}
-  slsec: sys_int_machine_t;            {data slice time, seconds}
-  slx: real;                           {X axis increment per slice}
-  sz: sys_int_adr_t;                   {memory size}
+  data_p: data_p_t;                    {to computed data to plot}
   live: boolean;                       {display is live, interactions with user}
   aa: boolean;                         {doing anti-aliasing}
   dx, dy: real;                        {scratch width/height}
@@ -51,40 +47,11 @@ label
 begin
   str.max := size_char(str.str);       {init local var strings}
   tk.max := size_char(tk.str);
-  dat_p := nil;                        {init to data array not allocated}
   rendopen := false;                   {init to RENDlib is not open}
 
-  case plotctrl.xaxis.cfg of           {how is X axis configured ?}
-xaxis_cfg_day_k: begin                 {one day, compute data per minute}
-      ndat := 24 * 60;                 {number of 1-minute time slices in a day}
-      slsec := 60;                     {data slice length, seconds}
-      slx := 1.0 / 60.0;               {X axis increment per slice}
-      end;
-xaxis_cfg_year_k: begin                {one year, compute data per day}
-      ndat := 365;                     {number of 1-day time slices in a year}
-      slsec := 24 * 60 * 60;           {data slice length, seconds}
-      slx := 1.0;                      {X axis increment per slice}
-      end;
-otherwise
-    sys_stat_set (sys_subsys_k, sys_stat_not_impl_name_k, stat);
-    sys_stat_parm_str ('X axis configuration', stat);
-    return;
-    end;
-
-  sz := ndat * sizeof(dat_p^[1]);      {size of data array}
-  sys_mem_alloc (sz, dat_p);           {allocate the data array}
-  util_mem_grab_err_bomb (dat_p, sz);  {bomb on didn't get the memory}
-
-  geld_avepower (                      {compute the averaged data}
-    geld_p^,                           {GELD library use state}
-    dat_p^,                            {array to return the data in}
-    ndat,                              {number of entries in data array}
-    slsec,                             {seconds data time per array entry}
-    plotctrl.dataset.tstart,           {start time of data to include}
-    plotctrl.dataset.tend,             {end time of data to include}
-    plotctrl.dataset.classes);         {rate classes to include}
+  geldplot_data_make (data_p);         {compute the data to plot}
 {
-*   DAT_P points to the averaged data to show.
+*   Determine the graphics output device to use and its parameters.
 }
   rend_start;                          {start and initialize RENDlib}
   rendopen := true;                    {indicate RENDlib is now open}
@@ -143,8 +110,9 @@ otherwise
     sys_bomb;
     end;
 {
-*   Set up the RENDlib basics.  This is all the one-time setup that can be done
-*   independent of the drawing area size.
+*   Do the one-time initialization of RENDlib.  All this initialization is
+*   independent of the drawing are size since the drawing area could be resized
+*   later.
 }
   rend_open (str, rendev, stat);       {open the drawing device}
   if sys_error(stat) then goto leave;
@@ -311,7 +279,7 @@ rend_ev_wiped_rect_k: begin
 *   Done with all drawing.  If the display is live, then it can now be deleted.
 }
 done_drawing:
-  sys_mem_dealloc (dat_p);             {deallocate the data array}
+  geldplot_data_del (data_p);          {done with the data to plot}
 
   if live then begin                   {live display, all done ?}
     goto leave;
@@ -363,9 +331,7 @@ done_drawing:
   if sys_error(stat) then goto abort1;
 
 leave:                                 {common exit point, STAT set}
-  if dat_p <> nil then begin           {data array still allocated ?}
-    sys_mem_dealloc (dat_p);           {deallocate it}
-    end;
+  geldplot_data_del (data_p);          {make sure plot data is deallocated}
   if rendopen then begin               {RENDlib is open ?}
     rend_end;                          {close RENDlib, deallocate resources}
     end;
