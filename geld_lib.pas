@@ -26,6 +26,8 @@ var
 begin
   util_mem_context_get (mem, mem_p);   {create our new subordinate memory context}
   util_mem_context_err_bomb (mem_p);   {bomb on didn't get the new context}
+  mem_p^.pool_size := 131072;          {size of pool allocated at one time}
+  mem_p^.max_pool_chunk := 32768;      {max size to allocate from pool}
 
   util_mem_grab (                      {alloc mem for new library use state}
     sizeof(geld_p^), mem_p^, false, geld_p);
