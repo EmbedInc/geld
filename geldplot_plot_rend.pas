@@ -18,8 +18,8 @@ procedure geldplot_plot_rend (         {plot data using RENDlib}
 var
   data_p: data_p_t;                    {to computed data to plot}
   live: boolean;                       {display is live, interactions with user}
-  aa: boolean;                         {doing anti-aliasing}
   dx, dy: real;                        {scratch width/height}
+  drawcfg: drawcfg_t;                  {drawing dev config to pass to drawing routine}
 
   rendopen: boolean;                   {RENDlib is open}
   rendev: rend_dev_id_t;               {RENDlib drawing device ID}
@@ -56,7 +56,7 @@ begin
   rend_start;                          {start and initialize RENDlib}
   rendopen := true;                    {indicate RENDlib is now open}
   live := false;                       {init to display is not live}
-  aa := false;                         {init to not anti-alias}
+  drawcfg.aa := false;                 {init to not anti-alias}
   xbord := 0;                          {init to no border pixels required}
   ybord := 0;
   xextra := xbord * 2;                 {init extra pixels each dim due to borders}
@@ -103,7 +103,7 @@ outty_file_k: begin                    {to image file}
       string_append1 (str, ' ');
       string_f_int (tk, sizey);
       string_append (str, tk);
-      aa := true;                      {result should be anti-aliased}
+      drawcfg.aa := true;              {result should be anti-aliased}
       end;
 otherwise
     writeln ('Unexpected PLOTCTRL.OUTTY of ', ord(plotctrl.outty), ' in GELDPLOT_PLOT_REND.');
@@ -133,7 +133,7 @@ otherwise
   rend_set.poly_parms^ (pparm);        {set our new "base" polygon control parms}
 
   rend_get.vect_parms^ (vparm);        {get default vector control parameters}
-  if aa
+  if drawcfg.aa
     then begin                         {drawing to high res bitmap for anti-aliasing}
       vparm.width := aafactor * 2;     {vector width in pixels}
       vparm.poly_level := rend_space_2dimcl_k; {space vector width defined in}
@@ -228,12 +228,25 @@ resize:
   bitmap_alloc := true;                {indicate bitmap has pixels allocated}
 
   rend_set.exit_rend^;                 {leave graphics mode}
+
+  drawcfg.xrit := xrit;                {right side of draw area, 2D space}
+  drawcfg.ytop := ytop;                {top of draw area, 2D space}
+  if drawcfg.aa
+    then begin
+      drawcfg.xout := (sizex - xextra) / aafactor;
+      drawcfg.yout := (sizey - yextra) / aafactor;
+      end
+    else begin
+      drawcfg.xout := sizex;
+      drawcfg.yout := sizey;
+      end
+    ;
 {
 *   Draw the plot contents.  We also get back here when the display is live and
 *   parts need to be redrawn due to user or system actions.
 }
 redraw:
-  geldplot_draw (data_p^, xrit, ytop); {draw the plot}
+  geldplot_draw (drawcfg, data_p^);    {draw the plot}
 {
 *   If the drawing is live, wait for the user to end the display.  Regions may
 *   also need re-drawing, and the drawing device size can change.
@@ -274,6 +287,9 @@ done_drawing:
 {
 *   The display was not live.  Write the resulting bitmap to an image file.
 }
+  file_delete_name (plotctrl.fnam, stat); {try to delete image file if it exists}
+  sys_error_none (stat);               {not an error if couldn't delete}
+
   rend_set.enter_rend^;                {into graphics mode}
 
   rend_set.alloc_bitmap_handle^ (      {create handle to image file bitmap}

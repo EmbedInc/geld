@@ -32,6 +32,7 @@ begin
   data_p^.slx := 0.0;
   data_p^.labx.max := size_char(data_p^.labx.str);
   data_p^.labx.len := 0;
+  data_p^.narr := 0;
   data_p^.data_p := nil;
   data_p^.maxval := 0.0;
   end;
@@ -96,6 +97,8 @@ begin
 }
   class_p^.next_p := data.data_p;      {point forward to existing start of list}
   data.data_p := class_p;              {update start of list pointer}
+
+  data.narr := data.narr + 1;          {count one more data array to plot}
   end;
 {
 ********************************************************************************

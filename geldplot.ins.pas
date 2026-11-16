@@ -8,7 +8,7 @@
 
 const
   def_datadir = '~/geld/data/2025';    {default directory holding tree of GELD data}
-  def_ifnam = '/temp/geld.jpg';        {default image output file name}
+  def_ifnam = '/temp/geld.tif';        {default image output file name}
   aafactor = 4;                        {anti-aliasing factor for image file output}
 
 type
@@ -55,6 +55,7 @@ type
     slsec: sys_int_machine_t;          {seconds data time per array entry}
     slx: real;                         {X axis increment per array entry}
     labx: string_var80_t;              {X axis label}
+    narr: sys_int_machine_t;           {number of data arrays}
     data_p: data_class_p_t;            {to list of classes, descending power order}
     maxval: double;                    {max of all data values}
     end;
@@ -68,6 +69,12 @@ type
     posx, posy: sys_int_machine_t;     {top left position if within larger area}
     fnam: string_treename_t;           {file name when writing to file}
     title: string_var80_t;             {plot title}
+    end;
+
+  drawcfg_t = record                   {config or graphics device used for drawing plot}
+    xrit, ytop: real;                  {2D space top right draw area corner, 0,0 is lower left}
+    xout, yout: real;                  {final output size, pixels}
+    aa: boolean;                       {raw drawing will be anti-aliased}
     end;
 
 var (geldplot_com)
@@ -92,8 +99,8 @@ procedure geldplot_data_make (         {compute data to plot under current confi
   val_param; extern;
 
 procedure geldplot_draw (              {draw plot to RENDlib, drawing only}
-  in      data: data_t;                {plot data to draw}
-  in      xrit, ytop: real);           {top right draw area coor, 0,0 bottom left}
+  in      cfg: drawcfg_t;              {draw area configuration}
+  in      data: data_t);               {plot data to draw}
   val_param; extern;
 
 procedure geldplot_init;               {init program state after data files read}
