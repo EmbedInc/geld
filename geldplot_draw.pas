@@ -57,7 +57,6 @@ var
   pnt1, pnt2: vect_2d_t;               {scratch 2D coordinates}
   r: real;                             {scratch floating point}
   s: string_var80_t;                   {scratch string}
-  tk: string_var32_t;                  {scratch token}
   tick_p: gui_tick_p_t;                {to tick mark description}
   arrn: sys_int_machine_t;             {0-N number of array being plotted}
   hue: real;                           {0-3 color hue}
@@ -108,17 +107,129 @@ function ploty (                       {drawing Y from Y axis data value}
   in      daty: real)                  {Y axis data value}
   :real;                               {2D space Y}
   val_param; internal;
+
+begin
+  ploty := daty * xfdat.yb.y + xfdat.ofs.y;
+  end;
+{
+********************************************************************************
+*
+*   Local subroutine DRAW_HOURS_DAY
+*   This routine is internal to GELDPLOT_DRAW.
+*
+*   Draw the vertical ticks and X axis label to show hours within a day.
+}
+procedure draw_hours_day;
+  val_param; internal;
+
+var
+  x: real;                             {scratch X coordinate}
+  ii: sys_int_machine_t;               {scratch integer and loop counter}
+  s: string_var16_t;                   {scratch string}
+
+begin
+  s.max := size_char(s.str);           {init local var string}
+
+  tparm.start_org := rend_torg_um_k;   {anchor text at top center}
+  rend_set.text_parms^ (tparm);
+
+  for ii := 0 to 24 do begin           {once for each hour tick}
+    x := plotx (ii * 3600.0);          {make X of this tick}
+    string_f_int (s, ii);              {make label string}
+    rend_set.rgb^ (tick0b, tick0b, tick0b);
+    rend_set.cpnt_2d^ (x, ptopy);      {to top end of tick}
+    rend_prim.vect_2d^ (x, ticky);     {draw tick to bottom end}
+    rend_set.rcpnt_2d^ (0.0, -tickspy * chardy); {leave room above label}
+    rend_set.rgb^ (0.0, 0.0, 0.0);     {draw labels in full black}
+    rend_prim.text^ (s.str, s.len);    {draw the label for this tick}
+    end;                               {back for next tick}
+
+  rend_set.cpnt_2d^ (                  {to top center of X units label}
+    (plftx + pritx) / 2.0,
+    ticky - (tickspy + 1.0 + tparm.lspace) * chardy);
+  rend_prim.text^ (data.labx.str, data.labx.len); {write X axis units}
+  end;
+{
+********************************************************************************
+*
+*   Local subroutine DRAW_MON_YEAR
+*   This routine is internal to GELDPLOT_DRAW.
+*
+*   Draw the vertical ticks and X axis label to show months within a year.
+}
+procedure draw_mon_year;
+  val_param; internal;
+
+var
+  date: sys_date_t;                    {expanded date/time}
+  tstart: sys_clock_t;                 {starting time, at left edge of plot}
+  tmon: sys_clock_t;                   {starting time of current month}
+  sec: real;                           {seconds into year}
+  x: real;                             {X of current tick}
+  xlast: real;                         {X of last month start}
+  s: string_var16_t;                   {scratch string}
+  stat: sys_err_t;                     {completion status}
+
+begin
+  s.max := size_char(s.str);           {init local var string}
+
+  tparm.start_org := rend_torg_um_k;   {anchor text at top center}
+  rend_set.text_parms^ (tparm);
+
+  sys_clock_to_date (                  {make expanded start date/time}
+    plotctrl.dataset.tstart,           {time to convert}
+    geld_p^.tzone.tzone,               {time zone ID}
+    geld_p^.tzone.hours_west,          {time zone hours west of CUT}
+    geld_p^.tzone.daysave,             {time zone daylight savings time strategy}
+    date);                             {returned expanded date/time}
+  date.minute := date.minute + 1;      {add minute in case rounded just before year}
+  sys_date_clean (date, date);         {clean to make valid date again}
+  date.month := 0;                     {snap to start of the year}
+  date.day := 0;
+  date.hour := 0;
+  date.minute := 0;
+  date.second := 0;
+  date.sec_frac := 0.0;
+  tstart := sys_clock_from_date (date); {save plot starting time}
+
+  for ii := 0 to 12 do begin           {once for each tick mark to draw}
+    if ii > 0 then begin               {will need previous month name ?}
+      sys_date_string (                {make month name string}
+        date,                          {date/time to get month of}
+        sys_dstr_mon_abbr_k,           {get month name abbreviation}
+        string_fw_freeform_k,          {make field width as needed}
+        s,                             {returned month string}
+        stat);                         {completion status, unused}
+      end;
+
+    date.month := ii;                  {set to start of this month}
+    sys_date_clean (date, date);       {clean to make sure date is valid}
+    tmon := sys_clock_from_date (date); {get time at start of this month}
+    sec := sys_clock_to_fp2 (          {seconds since start time}
+      sys_clock_sub (tmon, tstart) );
+    x := plotx (sec);                  {make drawing X for this time}
+
+    rend_set.rgb^ (tick0b, tick0b, tick0b); {draw the vertical tick line}
+    rend_set.cpnt_2d^ (x, ptopy);      {to top end of tick}
+    rend_prim.vect_2d^ (x, ticky);     {draw tick to bottom end}
+
+    if ii > 0 then begin               {not the first tick ?}
+      rend_set.rgb^ (0.0, 0.0, 0.0);   {draw labels black}
+      rend_set.cpnt_2d^ (              {to top center of month label string}
+        (xlast + x) / 2.0,             {in middle between last to ticks}
+        ticky - tickspy * chardy);     {down to top of label}
+      rend_prim.text^ (s.str, s.len);  {draw the month label}
+      end;
+
+    xlast := x;                        {save X of last tick}
+    end;                               {back for next tick}
+  end;
 {
 ********************************************************************************
 *
 *   Start of GELDPLOT_DRAW main routine.
 }
 begin
-  ploty := daty * xfdat.yb.y + xfdat.ofs.y;
-  end;
-
-begin
-  tk.max := size_char(tk.str);         {init local var strings}
   s.max := size_char(s.str);
 {
 *   Determine parameters about the drawing area.
@@ -282,27 +393,12 @@ next_ytick:                            {advance to the next tick mark}
   case plotctrl.xaxis.cfg of           {what is being shown on X axis ?}
 
 xaxis_cfg_day_k: begin                 {hours within day}
-  tparm.start_org := rend_torg_um_k;   {anchor text at top center}
-  rend_set.text_parms^ (tparm);
-  for ii := 0 to 24 do begin           {once for each hour tick}
-    x := plotx (ii * 3600.0);          {make X of this tick}
-    string_f_int (s, ii);              {make label string}
-    rend_set.rgb^ (tick0b, tick0b, tick0b);
-    rend_set.cpnt_2d^ (x, ptopy);      {to top end of tick}
-    rend_prim.vect_2d^ (x, ticky);     {draw tick to bottom end}
-    rend_set.rcpnt_2d^ (0.0, -tickspy * chardy); {leave room above label}
-    rend_set.rgb^ (0.0, 0.0, 0.0);     {draw labels in full black}
-    rend_prim.text^ (s.str, s.len);    {draw the label for this tick}
-    end;                               {back for next tick}
-
-  rend_set.cpnt_2d^ (                  {to top center of X units label}
-    (plftx + pritx) / 2.0,
-    ticky - (tickspy + 1.0 + tparm.lspace) * chardy);
-  rend_prim.text^ (data.labx.str, data.labx.len); {write X axis units}
-  end;
+      draw_hours_day;                  {draw X axis to show hours within a day}
+      end;
 
 xaxis_cfg_year_k: begin                {days within year}
-  end;
+      draw_mon_year;                   {draw X axis to show months within a year}
+      end;
 
     end;                               {end of X axis configuration cases}
   {
