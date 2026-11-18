@@ -12,6 +12,9 @@ define geldplot_draw;
 %include 'math.ins.pas';
 
 const
+{
+*   Configuration constants.
+}
   text_minfrac = 1.0 / 60.0;           {min text height rel to drawing height}
   text_minpix = 12.0;                  {min text height, final output pixels}
   text_vwid = 0.10;                    {text vector width, fraction of height}
@@ -64,6 +67,8 @@ var
   col: rend_rgb_t;                     {scratch RGB color}
   ii: sys_int_machine_t;               {scratch integer and loop counter}
   class_p: data_class_p_t;             {to data for current rate class}
+  indstart: sys_int_machine_t;         {data array index for left edge of plot}
+  ind: sys_int_machine_t;              {current data array index}
 
   pixx, pixy: real;                    {drawing area size in pixels}
   scalex, scaley: real;                {final output to drawing area pixels scale}
@@ -143,11 +148,86 @@ begin
     rend_set.rgb^ (0.0, 0.0, 0.0);     {draw labels in full black}
     rend_prim.text^ (s.str, s.len);    {draw the label for this tick}
     end;                               {back for next tick}
+  end;
+{
+********************************************************************************
+*
+*   Local subroutine DRAW_WEEKDAYS
+*   This routine is internal to GELDPLOT_DRAW.
+*
+*   Draw the vertical ticks and axis label to show days of the week.
+}
+procedure draw_weekdays;
+  val_param; internal;
 
-  rend_set.cpnt_2d^ (                  {to top center of X units label}
-    (plftx + pritx) / 2.0,
-    ticky - (tickspy + 1.0 + tparm.lspace) * chardy);
-  rend_prim.text^ (data.labx.str, data.labx.len); {write X axis units}
+var
+  time: sys_clock_t;                   {scratch absolute time}
+  date: sys_date_t;                    {expanded date/time}
+  dx: real;                            {X increment per day}
+  x: real;                             {X of current tick}
+  xlast: real;                         {X of previous tick}
+  ii: sys_int_machine_t;               {scratch integer and loop counter}
+  s: string_var16_t;                   {scratch string}
+  stat: sys_err_t;                     {completion status}
+
+begin
+  s.max := size_char(s.str);           {init local var string}
+
+  time := sys_clock_from_fp_abs (0.0); {make time at start of year 2000}
+  sys_clock_to_date (                  {convert to expanded date/time}
+    time,                              {time value to convert}
+    sys_tzone_cut_k,                   {CUT time zone}
+    0.0,                               {time zone hours west of CUT}
+    sys_daysave_no_k,                  {do not apply daylight savings time}
+    date);                             {returned expanded date/time}
+  date.day := 2;                       {to known Monday (3 Jan 2000)}
+
+  dx := (pritx - plftx) / 7.0;         {X axis increment per day}
+  tparm.start_org := rend_torg_um_k;   {anchor text at top center}
+  rend_set.text_parms^ (tparm);
+
+  for ii := 0 to 7 do begin            {once for each vertical tick mark}
+    if ii > 0 then begin               {will draw label before this tick ?}
+      sys_date_string (                {make month name string}
+        date,                          {date/time to get string of}
+        sys_dstr_daywk_abbr_k,         {get day of week name abbreviation}
+        string_fw_freeform_k,          {make field width as needed}
+        s,                             {returned month string}
+        stat);                         {completion status, unused}
+      date.day := date.day + 1;        {to next day of the week for next time}
+      end;
+
+    x := plftx + ii * dx;              {make X for this tick}
+
+    rend_set.rgb^ (tick0b, tick0b, tick0b); {draw the vertical tick line}
+    rend_set.cpnt_2d^ (x, ptopy);      {to top end of tick}
+    rend_prim.vect_2d^ (x, ticky);     {draw tick to bottom end}
+
+    if ii > 0 then begin               {not the first tick ?}
+      rend_set.rgb^ (0.0, 0.0, 0.0);   {draw labels black}
+      rend_set.cpnt_2d^ (              {to top center of label string}
+        (xlast + x) / 2.0,             {in middle between last to ticks}
+        ticky - tickspy * chardy);     {down to top of label}
+      rend_prim.text^ (s.str, s.len);  {draw the interval label}
+      end;
+
+    xlast := x;                        {save X of last tick}
+    end;                               {back for next tick}
+{
+*   Set INDSTART to the data index for the start of Monday.
+}
+  sys_clock_to_date (                  {make expanded date/time of data start time}
+    plotctrl.dataset.tstart,           {time value to convert}
+    geld_p^.tzone.tzone,               {time zone ID}
+    geld_p^.tzone.hours_west,          {time zone hours west of CUT}
+    geld_p^.tzone.daysave,             {time zone daylight savings time strategy}
+    date);                             {returned expanded date/time}
+
+  ii := sys_date_dayofweek (date);     {day of week data starts at, Sunday = 0}
+  ii := 1 - ii;                        {days to jump forwards to get to Monday}
+  if ii < 0 then ii := ii + 7;         {wrap to make positive offset}
+  ii := ii * 24 * 3600;                {seconds to jump forwards to get to Monday}
+  indstart := ii div data.slsec;       {number of array entries to jump forward}
   end;
 {
 ********************************************************************************
@@ -227,6 +307,56 @@ begin
 {
 ********************************************************************************
 *
+*   Local function IND_NEXT (IND)
+*   This function is internal to GELDPLOT_DRAW.
+*
+*   Return the data array index for the next sequential data value.  Each data
+*   array is a circular set of values.  This routine performs the circular
+*   wrapping as needed.
+}
+function ind_next (                    {get next sequential 0-N data index}
+  in      ind: sys_int_machine_t)      {starting index}
+  :sys_int_machine_t;                  {next sequential index forwards}
+  val_param; internal;
+
+var
+  ii: sys_int_machine_t;               {scratch index}
+
+begin
+  ii := ind + 1;                       {to next index}
+  if ii >= data.ndat then begin        {incremented past end of array ?}
+    ii := ii - data.ndat;              {wrap back to start}
+    end;
+  ind_next := ii;                      {return the final value}
+  end;
+{
+********************************************************************************
+*
+*   Local function IND_PREV (IND)
+*   This function is internal to GELDPLOT_DRAW.
+*
+*   Return the data array index for the previous sequential data value.  Each
+*   data array is a circular set of values.  This routine performs the circular
+*   wrapping as needed.
+}
+function ind_prev (                    {get previous sequential 0-N data index}
+  in      ind: sys_int_machine_t)      {starting index}
+  :sys_int_machine_t;                  {next sequential index backwards}
+  val_param; internal;
+
+var
+  ii: sys_int_machine_t;               {scratch index}
+
+begin
+  ii := ind - 1;                       {to previous index}
+  if ii < 0 then begin                 {decremented past start of array ?}
+    ii := ii + data.ndat;              {wrap back to end}
+    end;
+  ind_prev := ii;                      {return the final value}
+  end;
+{
+********************************************************************************
+*
 *   Start of GELDPLOT_DRAW main routine.
 }
 begin
@@ -302,7 +432,8 @@ begin
   colr := coll + (coldx * chardx);     {right X of color rectangles}
   colt := colr + (colspr * chardx);    {left X of color rectangles labels}
 {
-*   Set up the 2D transform from data values to drawing coordinates.
+*   Set up the 2D transform from data values to drawing coordinates.  The data X
+*   values will be in units of seconds.
 }
   xfdat.xb.x := (pritx - plftx) / (data.slsec * data.ndat);
   xfdat.xb.y := 0.0;
@@ -390,17 +521,30 @@ next_ytick:                            {advance to the next tick mark}
   {
   *   Draw the X axis vertical grid lines, tick marks, and labels.
   }
+  indstart := 0;                       {init data index for start of plot}
+
   case plotctrl.xaxis.cfg of           {what is being shown on X axis ?}
 
-xaxis_cfg_day_k: begin                 {hours within day}
+xaxis_cfg_day_k: begin                 {average over one day}
       draw_hours_day;                  {draw X axis to show hours within a day}
       end;
 
-xaxis_cfg_year_k: begin                {days within year}
+xaxis_cfg_week_k: begin                {average over one week}
+      draw_weekdays;                   {draw X axis to show days of the week}
+      end;
+
+xaxis_cfg_year_k: begin                {average over one year}
       draw_mon_year;                   {draw X axis to show months within a year}
       end;
 
     end;                               {end of X axis configuration cases}
+
+  tparm.start_org := rend_torg_um_k;   {anchor text at top center}
+  rend_set.text_parms^ (tparm);
+  rend_set.cpnt_2d^ (                  {to top center of X units label}
+    (plftx + pritx) / 2.0,
+    ticky - (tickspy + 1.0 + tparm.lspace) * chardy);
+  rend_prim.text^ (data.labx.str, data.labx.len); {write X axis units}
   {
   *   Plot the data arrays.
   }
@@ -447,18 +591,22 @@ xaxis_cfg_year_k: begin                {days within year}
     {
     *   Draw the trace.
     }
+    ind := indstart;                   {init index to start of data}
+
     x := plftx;
-    y := ploty ((class_p^.dat[0] + class_p^.dat[data.ndat-1]) / 2.0);
+    y := ploty ((class_p^.dat[ind] + class_p^.dat[ind_prev(ind)]) / 2.0);
     rend_set.cpnt_2d^ (x, y);          {start at average of first and last}
 
     for ii := 0 to data.ndat-1 do begin {loop over the array entries}
       x := plotx ((ii + 0.5) * data.slsec);
-      y := ploty (class_p^.dat[ii]);
+      y := ploty (class_p^.dat[ind]);
       rend_prim.vect_2d^ (x, y);
+      ind := ind_next(ind);            {to next data array entry}
       end;
 
+    ind := ind_prev (indstart);        {to last array entry}
     x := pritx;
-    y := ploty ((class_p^.dat[0] + class_p^.dat[data.ndat-1]) / 2.0);
+    y := ploty ((class_p^.dat[ind] + class_p^.dat[ind_next(ind)]) / 2.0);
     rend_prim.vect_2d^ (x, y);         {end at average of first and last}
     {
     *   Draw the color rectangle for this trace and label it.  The current color

@@ -167,7 +167,7 @@ begin
     'Show or set what plot output device');
   add_command ('TITLE title',          {7}
     'Set plot title');
-  add_command ('X [DAY|YEAR]',         {8}
+  add_command ('X [DAY|WEEK|YEAR]',    {8}
     'Show or set X axis configuration');
   add_command ('SZ [dx dy]',           {9}
     'Show or set drawing area size in pixels');
@@ -336,7 +336,7 @@ otherwise
 {
 ********************
 *
-*   X [DAY|YEAR]
+*   X [DAY|WEEK|YEAR]
 *
 *   Show or set plot X axis configuration.
 }
@@ -347,11 +347,12 @@ otherwise
     if not_eol then goto parm_extra;
     string_upcase (parm);              {make upper case for keyword matching}
     string_tkpick80 (parm,             {pick keyword from list}
-      'DAY YEAR',
+      'DAY WEEK YEAR',
       pick);
     case pick of                       {which keyword is it ?}
 1:    plotctrl.xaxis.cfg := xaxis_cfg_day_k;
-2:    plotctrl.xaxis.cfg := xaxis_cfg_year_k;
+2:    plotctrl.xaxis.cfg := xaxis_cfg_week_k;
+3:    plotctrl.xaxis.cfg := xaxis_cfg_year_k;
 otherwise
       goto parm_bad;
       end;
@@ -359,8 +360,9 @@ otherwise
 
   write ('X axis is ');
   case plotctrl.xaxis.cfg of
-xaxis_cfg_day_k: write ('hours within day');
-xaxis_cfg_year_k: write ('days within year');
+xaxis_cfg_day_k: write ('Average over one day');
+xaxis_cfg_week_k: write ('Average over one week');
+xaxis_cfg_year_k: write ('Daily averages over one year');
 otherwise
     write ('configured with ID ', ord(plotctrl.outty));
     end;

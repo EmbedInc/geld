@@ -14,6 +14,7 @@ const
 type
   xaxis_cfg_k_t = (                    {types of X axis configurations}
     xaxis_cfg_day_k,                   {one day, show hours, data by minute}
+    xaxis_cfg_week_k,                  {one week, shows days}
     xaxis_cfg_year_k);                 {one year, show months, data by day}
 
   yaxis_cfg_k_t = (                    {types of Y axis configurations}
