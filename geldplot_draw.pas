@@ -65,7 +65,7 @@ var
   hue: real;                           {0-3 color hue}
   dhue: real;                          {hue change per data array}
   col: rend_rgb_t;                     {scratch RGB color}
-  ii: sys_int_machine_t;               {scratch integer and loop counter}
+  ii, jj, kk: sys_int_machine_t;       {scratch integers and loop counters}
   class_p: data_class_p_t;             {to data for current rate class}
   indstart: sys_int_machine_t;         {data array index for left edge of plot}
   ind: sys_int_machine_t;              {current data array index}
@@ -533,7 +533,8 @@ xaxis_cfg_week_k: begin                {average over one week}
       draw_weekdays;                   {draw X axis to show days of the week}
       end;
 
-xaxis_cfg_year_k: begin                {average over one year}
+xaxis_cfg_year_k,
+xaxis_cfg_yearw_k: begin               {average over one year}
       draw_mon_year;                   {draw X axis to show months within a year}
       end;
 
@@ -599,7 +600,21 @@ xaxis_cfg_year_k: begin                {average over one year}
 
     for ii := 0 to data.ndat-1 do begin {loop over the array entries}
       x := plotx ((ii + 0.5) * data.slsec);
-      y := ploty (class_p^.dat[ind]);
+      case plotctrl.xaxis.cfg of       {check for special handling configurations}
+xaxis_cfg_yearw_k: begin               {average data over 1 week}
+          jj := ind_prev (ind);        {go back 3 days}
+          jj := ind_prev (jj);
+          jj := ind_prev (jj);
+          r := 0;                      {init accumulator}
+          for kk := 1 to 7 do begin    {scan the week surrounding current day}
+            r := r + class_p^.dat[jj]; {accumulate the daily readings}
+            jj := ind_next (jj);       {to next day}
+            end;
+          y := ploty (r / 7.0);        {make Y for average of 7 days}
+          end;
+otherwise                              {normal handling, get Y directly from array entry}
+        y := ploty (class_p^.dat[ind]);
+        end;
       rend_prim.vect_2d^ (x, y);
       ind := ind_next(ind);            {to next data array entry}
       end;

@@ -191,7 +191,8 @@ xaxis_cfg_week_k: begin                {one week, compute data per 5 minute inte
       string_vstring (data_p^.labx, 'Day of Week'(0), -1);
       data_p^.slx := 5.0 / 60.0;       {X axis increment per slice}
       end;
-xaxis_cfg_year_k: begin                {one year, compute data per day}
+xaxis_cfg_year_k,                      {one year, compute data per day}
+xaxis_cfg_yearw_k: begin
       data_p^.ndat := 365;             {number of 1-day time slices in a year}
       data_p^.slsec := 24 * 60 * 60;   {data slice length, seconds}
       string_vstring (data_p^.labx, 'Month'(0), -1);
