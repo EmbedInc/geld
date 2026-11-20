@@ -65,10 +65,11 @@ var
   hue: real;                           {0-3 color hue}
   dhue: real;                          {hue change per data array}
   col: rend_rgb_t;                     {scratch RGB color}
-  ii, jj, kk: sys_int_machine_t;       {scratch integers and loop counters}
+  ii: sys_int_machine_t;               {scratch integers and loop counters}
   class_p: data_class_p_t;             {to data for current rate class}
   indstart: sys_int_machine_t;         {data array index for left edge of plot}
   ind: sys_int_machine_t;              {current data array index}
+  dat0: real;                          {data value at left/right edges of plot}
 
   pixx, pixy: real;                    {drawing area size in pixels}
   scalex, scaley: real;                {final output to drawing area pixels scale}
@@ -357,6 +358,43 @@ begin
 {
 ********************************************************************************
 *
+*   Local function DAT_AVE (CLASS, IND, N)
+*
+*   Return the average data values for the indicated class at the data array
+*   index IND.  The N data values around IND will be averaged.  N should be an
+*   odd number so that IND is in the middle.  For example, when N is 7 then the
+*   value at IND, the three values before IND, and the three values after IND
+*   will all be averaged.
+}
+function dat_ave (                     {get average of data values}
+  in      class: data_class_t;         {class to average values from}
+  in      ind: sys_int_machine_t;      {data array index around which to average}
+  in      n: sys_int_machine_t)        {total number entries to average}
+  :real;                               {average of N data values around IND}
+  val_param; internal;
+
+var
+  indave: sys_int_machine_t;           {index for current value to include in average}
+  acc: real;                           {average accumulator}
+  ii: sys_int_machine_t;               {scratch integer and loop counter}
+
+begin
+  indave := ind - ((n - 1) div 2);     {raw index of first value to include}
+  while indave < 0 do begin            {wrap back to end of array as needed}
+    indave := indave + data.ndat;
+    end;
+
+  acc := 0.0;                          {init the accumulator}
+  for ii := 1 to n do begin            {once for each data value to include}
+    acc := acc + class.dat[indave];    {accumulate this value}
+    indave := ind_next (indave);       {to next array entry}
+    end;
+
+  dat_ave := acc / n;                  {return average of the included values}
+  end;
+{
+********************************************************************************
+*
 *   Start of GELDPLOT_DRAW main routine.
 }
 begin
@@ -606,23 +644,30 @@ xaxis_cfg_yearw_k: begin               {average over one year}
     }
     ind := indstart;                   {init index to start of data}
 
+    case plotctrl.xaxis.cfg of         {check for special handling configurations}
+xaxis_cfg_yearw_k: begin               {average data over 1 week}
+        dat0 :=
+          dat_ave (class_p^, ind, 7) + {value at first plot point}
+          dat_ave (class_p^, ind_prev(ind), 7); {value at last plot point}
+        dat0 := dat0 / 2.0;            {make average}
+        end;
+otherwise                              {normal, get value directly from array}
+      dat0 :=
+        class_p^.dat[ind] +            {value at first plot point}
+        class_p^.dat[ind_prev(ind)];   {value at last plot point}
+      dat0 := dat0 / 2.0;              {make average}
+      end;                             {end of special handling cases}
+
     x := plftx;
-    y := ploty ((class_p^.dat[ind] + class_p^.dat[ind_prev(ind)]) / 2.0);
+    y := ploty (dat0);
     rend_set.cpnt_2d^ (x, y);          {start at average of first and last}
 
     for ii := 0 to data.ndat-1 do begin {loop over the array entries}
       x := plotx ((ii + 0.5) * data.slsec);
       case plotctrl.xaxis.cfg of       {check for special handling configurations}
 xaxis_cfg_yearw_k: begin               {average data over 1 week}
-          jj := ind_prev (ind);        {go back 3 days}
-          jj := ind_prev (jj);
-          jj := ind_prev (jj);
-          r := 0;                      {init accumulator}
-          for kk := 1 to 7 do begin    {scan the week surrounding current day}
-            r := r + class_p^.dat[jj]; {accumulate the daily readings}
-            jj := ind_next (jj);       {to next day}
-            end;
-          y := ploty (r / 7.0);        {make Y for average of 7 days}
+          y := dat_ave (class_p^, ind, 7); {make average data value here}
+          y := ploty (y);              {convert to drawing Y coordinate}
           end;
 otherwise                              {normal handling, get Y directly from array entry}
         y := ploty (class_p^.dat[ind]);
@@ -631,9 +676,8 @@ otherwise                              {normal handling, get Y directly from arr
       ind := ind_next(ind);            {to next data array entry}
       end;
 
-    ind := ind_prev (indstart);        {to last array entry}
     x := pritx;
-    y := ploty ((class_p^.dat[ind] + class_p^.dat[ind_next(ind)]) / 2.0);
+    y := ploty (dat0);
     rend_prim.vect_2d^ (x, y);         {end at average of first and last}
     {
     *   Draw the color rectangle for this trace and label it.  The current color
