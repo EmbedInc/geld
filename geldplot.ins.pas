@@ -101,6 +101,16 @@ procedure geldplot_data_make (         {compute data to plot under current confi
   out     data_p: data_p_t);           {returned pointer to plottable data}
   val_param; extern;
 
+procedure geldplot_date_local (        {get expaneded local date/time from abs time}
+  in      time: sys_clock_t;           {input absolute time}
+  out     date: sys_date_t);           {returned local date/time}
+  val_param; extern;
+
+procedure geldplot_date_str (          {make date/time string from sys clock value}
+  in      time: sys_clock_t;           {absolute time}
+  in out  s: univ string_var_arg_t);   {returned date/time in local time zone}
+  val_param; extern;
+
 procedure geldplot_draw (              {draw plot to RENDlib, drawing only}
   in      cfg: drawcfg_t;              {draw area configuration}
   in      data: data_t);               {plot data to draw}

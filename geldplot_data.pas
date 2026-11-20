@@ -185,15 +185,13 @@ begin
   tk.max := size_char(tk.str);         {init local var string}
   geldplot_data_new (data_p);          {create and initialize new data descriptor}
 
-  sys_clock_str1 (                     {init description with starting time}
+  geldplot_date_str (                  {init description string with starting time}
     plotctrl.dataset.tstart,           {time}
     data_p^.desc);                     {returned YYYY/MM/DD.hh:mm:ss}
-  data_p^.desc.len := min(data_p^.desc.len, 16); {truncate to minutes only}
   string_appends (data_p^.desc, ' - '(0));
-  sys_clock_str1 (                     {make ending time string}
+  geldplot_date_str (                  {make ending time string}
     plotctrl.dataset.tend,             {time}
     tk);                               {returned YYYY/MM/DD.hh:mm:ss}
-  tk.len := min(tk.len, 16);           {truncate to minutes only}
   string_append (data_p^.desc, tk);    {add ending time to description string}
 
   case plotctrl.xaxis.cfg of           {how is X axis configured ?}

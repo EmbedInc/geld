@@ -276,9 +276,9 @@ loop_command:
     if not_eol then goto parm_extra;
     end;
 
-  sys_clock_str1 (plotctrl.dataset.tstart, parm); {make starting time string}
+  geldplot_date_str (plotctrl.dataset.tstart, parm);
   write ('Time range ', parm.str:parm.len);
-  sys_clock_str1 (plotctrl.dataset.tend, parm); {make ending time string}
+  geldplot_date_str (plotctrl.dataset.tend, parm);
   writeln (' - ', parm.str:parm.len);
   end;
 {
