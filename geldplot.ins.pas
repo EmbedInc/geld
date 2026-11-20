@@ -60,6 +60,7 @@ type
     narr: sys_int_machine_t;           {number of data arrays}
     data_p: data_class_p_t;            {to list of classes, descending power order}
     maxval: double;                    {max of all data values}
+    desc: string_var80_t;              {description string}
     end;
 
   plotctrl_t = record                  {plot control parameters}

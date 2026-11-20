@@ -35,6 +35,8 @@ begin
   data_p^.narr := 0;
   data_p^.data_p := nil;
   data_p^.maxval := 0.0;
+  data_p^.desc.max := size_char(data_p^.desc.str);
+  data_p^.desc.len := 0;
   end;
 {
 ********************************************************************************
@@ -174,9 +176,25 @@ var
   best: double;                        {best value so far}
   other_p: data_class_p_t;             {other entry to compare curr to}
   other_pp: data_class_pp_t;           {to link pointing to other entry}
+  tk: string_var32_t;                  {scratch token}
+
+label
+  setup_year;
 
 begin
+  tk.max := size_char(tk.str);         {init local var string}
   geldplot_data_new (data_p);          {create and initialize new data descriptor}
+
+  sys_clock_str1 (                     {init description with starting time}
+    plotctrl.dataset.tstart,           {time}
+    data_p^.desc);                     {returned YYYY/MM/DD.hh:mm:ss}
+  data_p^.desc.len := min(data_p^.desc.len, 16); {truncate to minutes only}
+  string_appends (data_p^.desc, ' - '(0));
+  sys_clock_str1 (                     {make ending time string}
+    plotctrl.dataset.tend,             {time}
+    tk);                               {returned YYYY/MM/DD.hh:mm:ss}
+  tk.len := min(tk.len, 16);           {truncate to minutes only}
+  string_append (data_p^.desc, tk);    {add ending time to description string}
 
   case plotctrl.xaxis.cfg of           {how is X axis configured ?}
 xaxis_cfg_day_k: begin                 {one day, compute data per minute}
@@ -184,15 +202,22 @@ xaxis_cfg_day_k: begin                 {one day, compute data per minute}
       data_p^.slsec := 60;             {data slice length, seconds}
       string_vstring (data_p^.labx, 'Hour'(0), -1);
       data_p^.slx := 1.0 / 60.0;       {X axis increment per slice}
+      string_appends (data_p^.desc, ' daily average.'(0));
       end;
 xaxis_cfg_week_k: begin                {one week, compute data per 5 minute intervals}
       data_p^.ndat := 24 * 60 * 7 div 5; {number of 5-minute time slices in a week}
       data_p^.slsec := 60 * 5;         {data slice length, seconds}
       string_vstring (data_p^.labx, 'Day of Week'(0), -1);
       data_p^.slx := 5.0 / 60.0;       {X axis increment per slice}
+      string_appends (data_p^.desc, ' weekly average.'(0));
       end;
-xaxis_cfg_year_k,                      {one year, compute data per day}
-xaxis_cfg_yearw_k: begin
+xaxis_cfg_year_k: begin                {one year, daily average}
+      string_appends (data_p^.desc, ' sliding 1 day average.'(0));
+      goto setup_year;
+      end;
+xaxis_cfg_yearw_k: begin               {one year, weekly average}
+      string_appends (data_p^.desc, ' sliding 1 week average.'(0));
+setup_year:
       data_p^.ndat := 365;             {number of 1-day time slices in a year}
       data_p^.slsec := 24 * 60 * 60;   {data slice length, seconds}
       string_vstring (data_p^.labx, 'Month'(0), -1);

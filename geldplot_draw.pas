@@ -540,12 +540,24 @@ xaxis_cfg_yearw_k: begin               {average over one year}
 
     end;                               {end of X axis configuration cases}
 
-  tparm.start_org := rend_torg_um_k;   {anchor text at top center}
+  tparm.start_org := rend_torg_um_k;   {anchor text at upper middle}
   rend_set.text_parms^ (tparm);
   rend_set.cpnt_2d^ (                  {to top center of X units label}
     (plftx + pritx) / 2.0,
     ticky - (tickspy + 1.0 + tparm.lspace) * chardy);
   rend_prim.text^ (data.labx.str, data.labx.len); {write X axis units}
+  {
+  *   Draw the plot description string.
+  }
+  tparm.start_org := rend_torg_lm_k;   {anchor text at lower middle}
+  rend_set.text_parms^ (tparm);
+  rend_set.rgb^ (0.0, 0.0, 0.0);       {black}
+
+  rend_set.cpnt_2d^ (                  {to bottom center of description string}
+    cfg.xrit / 2.0,
+    tparm.lspace * chardy);
+
+  rend_prim.text^ (data.desc.str, data.desc.len); {draw the description string}
   {
   *   Plot the data arrays.
   }
